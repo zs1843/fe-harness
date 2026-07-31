@@ -1,0 +1,13 @@
+{
+  "name": "@company/fe-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "fe-harness": "./bin/fe-harness.mjs"
+  },
+  "dependencies": {
+    "@company/fe-harness-core": "workspace:*",
+    "yaml": "^2.8.1"
+  }
+}

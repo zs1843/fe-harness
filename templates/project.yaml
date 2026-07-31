@@ -1,0 +1,58 @@
+harness:
+  package: "@company/fe-harness"
+  version: "0.1.0"
+
+project:
+  name: example-project
+  product_type: consumer_h5
+  platforms:
+    - web_mobile
+
+stack:
+  adapter: uni-app
+  framework: vue
+  language: typescript
+  bundler: vite
+  package_manager: pnpm
+
+facts:
+  agent_entry: AGENTS.md
+  project_map: docs/PROJECT_MAP.md
+  design_guide: docs/DESIGN.md
+
+commands:
+  lint: pnpm lint
+  type_check: pnpm type-check
+  unit_test: pnpm test
+  build: pnpm build:h5
+  e2e: pnpm test:e2e
+  visual: pnpm test:visual
+
+verify:
+  quick:
+    fail_fast: true
+    commands:
+      - lint
+      - type_check
+      - unit_test
+  feature:
+    fail_fast: true
+    commands:
+      - lint
+      - type_check
+      - unit_test
+      - build
+  visual:
+    fail_fast: true
+    commands:
+      - e2e
+      - visual
+  audit:
+    fail_fast: false
+    commands:
+      - lint
+      - type_check
+      - unit_test
+      - build
+      - e2e
+      - visual

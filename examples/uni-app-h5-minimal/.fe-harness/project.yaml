@@ -1,0 +1,34 @@
+harness:
+  package: "@company/fe-harness"
+  version: "0.1.0"
+project:
+  name: minimal-h5-example
+  product_type: consumer_h5
+  platforms:
+    - web_mobile
+stack:
+  adapter: uni-app
+facts:
+  agent_entry: AGENTS.md
+  project_map: docs/PROJECT_MAP.md
+  design_guide: docs/DESIGN.md
+commands:
+  lint: npm run lint
+  type_check: npm run type-check
+  unit_test: npm run test
+  build: npm run build:h5
+  e2e: npm run test:e2e
+  visual: npm run test:visual
+verify:
+  quick:
+    fail_fast: true
+    commands: [lint, type_check, unit_test]
+  feature:
+    fail_fast: true
+    commands: [lint, type_check, unit_test, build]
+  visual:
+    fail_fast: true
+    commands: [e2e, visual]
+  audit:
+    fail_fast: false
+    commands: [lint, type_check, unit_test, build, e2e, visual]

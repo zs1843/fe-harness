@@ -1,0 +1,99 @@
+import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
+import test from 'node:test';
+
+import { runDoctor } from '../packages/core/src/index.mjs';
+
+test('doctor returns stable issue codes and remediation', async () => {
+  const cwd = await mkdtemp(resolve(tmpdir(), 'fe-harness-doctor-'));
+  await writeFile(resolve(cwd, 'package.json'), '{"scripts":{}}\n');
+  const report = await runDoctor(cwd, {
+    commands: { build: 'pnpm build:h5' },
+    facts: { design_guide: 'docs/DESIGN.md' },
+  });
+  assert.equal(report.status, 'failed');
+  assert.ok(report.results.every((item) => typeof item.code === 'string'));
+  const missingScript = report.results.find((item) => item.name === 'command:build');
+  assert.equal(missingScript.code, 'PROJECT_SCRIPT');
+  assert.match(missingScript.suggestion, /build:h5/);
+});
+
+test('doctor validates a configured consumer H5 OpenAPI snapshot and uni-app structure', async () => {
+  const cwd = await mkdtemp(resolve(tmpdir(), 'fe-harness-consumer-doctor-'));
+  await mkdir(resolve(cwd, 'src'), { recursive: true });
+  await mkdir(resolve(cwd, 'src/pages/index'), { recursive: true });
+  await mkdir(resolve(cwd, '.fe-harness/snapshots'), { recursive: true });
+  await writeFile(
+    resolve(cwd, 'package.json'),
+    JSON.stringify({
+      dependencies: { '@dcloudio/uni-app': '1.0.0', vue: '3.0.0' },
+      packageManager: 'pnpm@10.12.1',
+      scripts: { 'build:h5': 'vite build' },
+    }),
+  );
+  await writeFile(resolve(cwd, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
+  await writeFile(resolve(cwd, '.gitignore'), 'tmp/\n');
+  await writeFile(resolve(cwd, 'src/pages.json'), '{"pages":[{"path":"pages/index/index"}]}\n');
+  await writeFile(resolve(cwd, 'src/pages/index/index.vue'), '<template><view /></template>\n');
+  await writeFile(
+    resolve(cwd, '.fe-harness/snapshots/openapi.json'),
+    '{"openapi":"3.1.0","paths":{}}\n',
+  );
+  const report = await runDoctor(cwd, {
+    commands: { build: 'pnpm build:h5' },
+    project: { product_type: 'consumer_h5' },
+    sources: {
+      api: { provider: 'openapi', snapshot: '.fe-harness/snapshots/openapi.json' },
+    },
+    stack: { adapter: 'uni-app', package_manager: 'pnpm' },
+  });
+  const checks = Object.fromEntries(report.results.map((item) => [item.code, item]));
+  assert.equal(checks.PACKAGE_MANAGER.status, 'passed');
+  assert.equal(checks.UNI_APP_PAGE_REGISTRY.status, 'passed');
+  assert.equal(checks.UNI_APP_DEPENDENCIES.status, 'passed');
+  assert.equal(checks.GITIGNORE_REPORTS.status, 'passed');
+  assert.equal(checks.OPENAPI_SNAPSHOT.status, 'passed');
+});
+
+test('doctor rejects page registrations without matching Vue components', async () => {
+  const cwd = await mkdtemp(resolve(tmpdir(), 'fe-harness-pages-doctor-'));
+  await mkdir(resolve(cwd, 'src'), { recursive: true });
+  await writeFile(resolve(cwd, 'package.json'), '{}\n');
+  await writeFile(resolve(cwd, '.gitignore'), 'tmp/\n');
+  await writeFile(resolve(cwd, 'src/pages.json'), '{"pages":[{"path":"pages/missing"}]}\n');
+  const report = await runDoctor(cwd, { stack: { adapter: 'uni-app' } });
+  const pageRegistry = report.results.find((item) => item.code === 'UNI_APP_PAGE_REGISTRY');
+  assert.equal(pageRegistry.status, 'failed');
+  assert.match(pageRegistry.message, /pages\/missing/);
+});
+
+test('doctor reports a malformed configured OpenAPI snapshot', async () => {
+  const cwd = await mkdtemp(resolve(tmpdir(), 'fe-harness-openapi-doctor-'));
+  await mkdir(resolve(cwd, '.fe-harness/snapshots'), { recursive: true });
+  await writeFile(resolve(cwd, 'package.json'), '{}\n');
+  await writeFile(resolve(cwd, '.gitignore'), 'tmp/fe-harness/\n');
+  await writeFile(resolve(cwd, '.fe-harness/snapshots/openapi.json'), '{bad json}\n');
+  const report = await runDoctor(cwd, {
+    sources: {
+      api: { provider: 'openapi', snapshot: '.fe-harness/snapshots/openapi.json' },
+    },
+  });
+  const openapi = report.results.find((item) => item.code === 'OPENAPI_SNAPSHOT');
+  assert.equal(openapi.status, 'failed');
+  assert.match(openapi.suggestion, /仅接受.*JSON/);
+});
+
+test('doctor requires the project Agent workflow for consumer H5', async () => {
+  const cwd = await mkdtemp(resolve(tmpdir(), 'fe-harness-agent-doctor-'));
+  await writeFile(resolve(cwd, 'package.json'), '{}\n');
+  await writeFile(resolve(cwd, '.gitignore'), 'tmp/\n');
+  const report = await runDoctor(cwd, {
+    facts: { agent_entry: 'AGENTS.md' },
+    project: { product_type: 'consumer_h5' },
+  });
+  const workflow = report.results.find((item) => item.code === 'AGENT_WORKFLOW');
+  assert.equal(workflow.status, 'failed');
+  assert.match(workflow.suggestion, /fe-harness plan init/);
+});

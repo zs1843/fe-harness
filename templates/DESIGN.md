@@ -1,6 +1,28 @@
-# Design Guide
+# 设计规范
 
-Document the project's design principles, semantic tokens, component rules, interaction rules,
-responsive behavior, accessibility requirements, and visual acceptance criteria here.
+本文只维护全局设计原则，不保存具体 Design Token 数值。机器可读 Token 唯一事实来源为 `docs/design/tokens.json`，中文解释见 `docs/design/TOKENS.md`。
 
-The template intentionally defines no brand, component library, or token values.
+## 设计目标
+
+- 面向 Consumer H5 的移动端体验，优先保证任务完成效率、信息清晰和触控可用。
+- 项目提供高保真 UI 时，以高保真 UI 作为视觉还原依据，不使用脚手架默认示例覆盖。
+- 项目未提供高保真 UI 时，视觉可参考低保真 RP，但必须标记为“推断”或“待确认”。
+
+## 输入优先级
+
+- 视觉结构与信息层级：高保真 UI → 低保真 RP → PRD → 项目已有实现 → Harness 默认模板 → Agent 推断。
+- Design Token：高保真 UI → 低保真 RP → 用户当前临时视觉要求 → 项目已有 Token → 本文全局原则 → Harness 默认 Token → Agent 推断。
+
+用户明确要求覆盖已有 UI 时，必须记录覆盖决定、修改前值、修改后值、影响页面与组件、Token 版本和任务快照。
+
+## 验收方法
+
+- H5 移动视口必须覆盖 320px、375px、390px、430px 中项目声明的关键视口。
+- UI 改动需要运行视觉回归；没有基线时结果只能是“未配置”，不能是“通过”。
+- 颜色不能作为唯一状态信号，必须配合文案、图标或标题。
+- 固定底栏、弹层、键盘和安全区不得遮挡关键操作。
+
+## 记录要求
+
+- 已确认、推断、待确认和冲突必须分开记录。
+- 颜色、字体、字号、间距、圆角、阴影、图标、图片、文案和截图差异修复都必须写入变更历史。

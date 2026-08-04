@@ -5,8 +5,10 @@
 - Stabilize configuration, runner, reports, and exit semantics.
 - Complete Doctor checks for Node, package manager, scripts, test isolation, CI entry points, and
   sensitive-file handling.
-- Add initialization reports and conflict patches.
-- Replace the placeholder example with a real minimal uni-app H5 fixture.
+- Keep initialization preflight lightweight; add richer reports or conflict patches only if pilot
+  projects demonstrate the need.
+- Add PRD/UI input conventions, basic project history, and an OpenAPI snapshot check.
+- Maintain the real minimal uni-app H5 fixture and its focused browser runtime check.
 - Validate `consumer-h5 + web-mobile + uni-app` in two unrelated projects.
 
 ## Milestone 0.2: Distribution

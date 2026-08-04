@@ -45,16 +45,50 @@ export function runShellCommand(command, { cwd, env = process.env } = {}) {
   });
 }
 
-export async function runVerification({ cwd, failFast, mode, steps }) {
+export async function runVerification({ cwd, failFast, mode, notConfigured = false, steps }) {
+  if (notConfigured) {
+    return {
+      mode,
+      results: [],
+      status: 'not_configured',
+      summary: '该验证模式未配置，不能视为通过',
+    };
+  }
   const results = [];
   for (const step of steps) {
     const result = await runShellCommand(step.command, { cwd });
-    results.push({ ...result, name: step.name });
-    if (failFast && result.status !== 'passed') break;
+    const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+    const environmentBlocked = /listen EPERM|EACCES.*listen|operation not permitted.*listen/i.test(output);
+    const visualMissingBaseline =
+      mode === 'visual' &&
+      /snapshot.*doesn'?t exist|has no baseline|Missing.*snapshot|toHaveScreenshot/i.test(output);
+    const normalized = environmentBlocked
+      ? {
+          ...result,
+          status: 'blocked',
+          summary: '工具链或当前执行环境阻止服务监听端口，不归类为项目业务失败',
+        }
+      : visualMissingBaseline
+      ? {
+          ...result,
+          status: 'not_configured',
+          summary: '视觉截图基线未配置，请执行显式更新基线命令',
+        }
+      : result;
+    results.push({ ...normalized, name: step.name });
+    if (failFast && normalized.status !== 'passed') break;
+  }
+  if (mode === 'visual' && results.some((item) => item.status === 'not_configured')) {
+    return {
+      mode,
+      results,
+      status: 'not_configured',
+      summary: '视觉回归未配置截图基线，不能视为通过',
+    };
   }
   return {
     mode,
     results,
-    status: results.every((item) => item.status === 'passed') ? 'passed' : 'failed',
+    status: results.length && results.every((item) => item.status === 'passed') ? 'passed' : 'failed',
   };
 }

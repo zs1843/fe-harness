@@ -39,3 +39,43 @@ test('rejects an undefined command reference', () => {
     /未定义命令/,
   );
 });
+
+test('rejects unsupported consumer project selections', () => {
+  assert.throws(
+    () =>
+      validateProjectConfig({
+        ...config,
+        project: { ...config.project, platforms: ['desktop'] },
+        stack: { adapter: 'unknown' },
+      }),
+    /不支持的平台.*stack\.adapter/s,
+  );
+});
+
+test('rejects empty command values during configuration validation', () => {
+  assert.throws(
+    () => validateProjectConfig({ ...config, commands: { ...config.commands, build: '' } }),
+    /commands\.build 必须是非空字符串/,
+  );
+});
+
+test('validates an optional OpenAPI snapshot source', () => {
+  const sourcedConfig = {
+    ...config,
+    sources: {
+      api: { provider: 'openapi', snapshot: '.fe-harness/snapshots/openapi.json' },
+    },
+  };
+  assert.equal(validateProjectConfig(sourcedConfig), sourcedConfig);
+});
+
+test('rejects an unsupported API source provider', () => {
+  assert.throws(
+    () =>
+      validateProjectConfig({
+        ...config,
+        sources: { api: { provider: 'apifox-sdk', snapshot: '' } },
+      }),
+    /sources\.api\.provider.*sources\.api\.snapshot/s,
+  );
+});

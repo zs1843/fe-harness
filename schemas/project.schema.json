@@ -33,7 +33,25 @@
       "type": "object",
       "required": ["adapter"],
       "properties": {
-        "adapter": { "type": "string", "enum": ["uni-app", "node-esm"] }
+        "adapter": { "type": "string", "enum": ["uni-app", "node-esm"] },
+        "package_manager": { "type": "string", "enum": ["pnpm", "npm", "yarn"] }
+      }
+    },
+    "facts": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "sources": {
+      "type": "object",
+      "properties": {
+        "api": {
+          "type": "object",
+          "required": ["provider", "snapshot"],
+          "properties": {
+            "provider": { "const": "openapi" },
+            "snapshot": { "type": "string", "minLength": 1 }
+          }
+        }
       }
     },
     "commands": {
@@ -42,7 +60,33 @@
     },
     "verify": {
       "type": "object",
-      "required": ["quick", "feature", "audit"]
+      "required": ["quick", "feature", "audit"],
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["commands"],
+            "properties": {
+              "fail_fast": { "type": "boolean" },
+              "commands": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["status", "commands"],
+            "properties": {
+              "status": { "const": "not_configured" },
+              "commands": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        ]
+      }
     }
   }
 }

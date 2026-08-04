@@ -13,8 +13,13 @@ The first profile targets:
 ## Commands
 
 ```bash
+fe-harness create my-h5 --dry-run
+fe-harness create my-h5
 fe-harness init --dry-run
 fe-harness init
+fe-harness inspect --json
+fe-harness plan init --json
+fe-harness plan create my-h5 --json
 fe-harness doctor
 fe-harness verify quick
 fe-harness verify feature
@@ -22,6 +27,11 @@ fe-harness verify visual
 fe-harness verify audit
 fe-harness version
 ```
+
+`create` generates a real consumer-H5 project with uni-app, Vue 3, Vite, Playwright, project facts,
+automatic Agent instructions, and a project-local `consumer-h5-harness` skill. `init` connects an
+existing project without overwriting conflicts. AI agents should use `inspect` and `plan` before
+mutation, then invoke the appropriate verification mode automatically.
 
 ## Architecture
 

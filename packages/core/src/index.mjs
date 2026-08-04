@@ -1,4 +1,10 @@
 export { loadProjectConfig, resolveVerifySteps, validateProjectConfig } from './config.mjs';
+export { diffDesignTokens, inspectDesignTokens } from './design.mjs';
 export { runDoctor } from './doctor.mjs';
+export { createTaskSnapshot, inspectTaskHistory } from './history.mjs';
+export { applyInitialization, planInitialization } from './init.mjs';
+export { analyzeInputs, inspectInputs, inspectTaskMetadata, readInputManifest } from './inputs.mjs';
+export { applyProjectCreation, planProjectCreation, publicPlan } from './project.mjs';
 export { writeReport } from './report.mjs';
 export { runShellCommand, runVerification } from './runner.mjs';
+export { displayStatus, localizeResult, STATUS_DISPLAY } from './status.mjs';

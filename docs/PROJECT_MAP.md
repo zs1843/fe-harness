@@ -15,6 +15,8 @@ developers, CI pipelines, and coding agents through the same configuration and C
 | `platforms/` | Runtime and acceptance-platform descriptors |
 | `stacks/` | Framework and toolchain descriptors |
 | `templates/` | Business-neutral files created during initialization |
+| `presets/` | Complete business-neutral projects created by the CLI |
+| `skills/` | Agent workflows copied into generated or initialized projects |
 | `schemas/` | Public configuration protocol |
 | `examples/` | Disposable integration fixtures |
 | `tests/` | Harness unit and orchestration tests |

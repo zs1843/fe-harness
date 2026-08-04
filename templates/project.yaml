@@ -19,13 +19,28 @@ facts:
   agent_entry: AGENTS.md
   project_map: docs/PROJECT_MAP.md
   design_guide: docs/DESIGN.md
+  design_tokens: docs/design/tokens.json
+  product_guide: docs/PRODUCT.md
+  current_status: docs/CURRENT_STATUS.md
+  decisions: docs/DECISIONS.md
+  prd_history: docs/history/PRD_HISTORY.md
+  change_history: docs/history/CHANGE_HISTORY.md
+  implementation_coverage: docs/IMPLEMENTATION_COVERAGE.md
+
+# Configure this after exporting an OpenAPI JSON snapshot from Apifox:
+# sources:
+#   api:
+#     provider: openapi
+#     snapshot: .fe-harness/snapshots/openapi.json
 
 commands:
   lint: pnpm lint
   type_check: pnpm type-check
   unit_test: pnpm test
   build: pnpm build:h5
-  e2e: pnpm test:e2e
+  dev_ready: pnpm test:dev-ready
+  runtime: pnpm test:runtime
+  interaction: pnpm test:interaction
   visual: pnpm test:visual
 
 verify:
@@ -42,10 +57,18 @@ verify:
       - type_check
       - unit_test
       - build
+  runtime:
+    fail_fast: true
+    commands:
+      - dev_ready
+      - runtime
+  interaction:
+    fail_fast: true
+    commands:
+      - interaction
   visual:
     fail_fast: true
     commands:
-      - e2e
       - visual
   audit:
     fail_fast: false
@@ -54,5 +77,6 @@ verify:
       - type_check
       - unit_test
       - build
-      - e2e
-      - visual
+      - dev_ready
+      - runtime
+      - interaction

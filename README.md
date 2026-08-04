@@ -25,13 +25,39 @@ fe-harness verify quick
 fe-harness verify feature
 fe-harness verify visual
 fe-harness verify audit
+fe-harness inputs inspect --json
+fe-harness design tokens inspect --json
+fe-harness ui systems list --json
+fe-harness ui systems install tdesign-uniapp --dry-run --json
+fe-harness task create --title "首次需求"
+fe-harness skills list --json
+fe-harness skills install --project
+fe-harness skills install --global
 fe-harness version
+fe-harness -v
+fe-harness --version
 ```
 
 `create` generates a real consumer-H5 project with uni-app, Vue 3, Vite, Playwright, project facts,
-automatic Agent instructions, and a project-local `consumer-h5-harness` skill. `init` connects an
-existing project without overwriting conflicts. AI agents should use `inspect` and `plan` before
+automatic Agent instructions, and project-local Skills for every CLI command. It installs project
+dependencies by default; use `--skip-install` for offline scaffolding. `init` connects an existing
+project without overwriting project-owned files. AI agents should use `inspect` and `plan` before
 mutation, then invoke the appropriate verification mode automatically.
+
+`fe-harness-create` is the composite workflow Skill. It checks or bootstraps the CLI, asks only for
+missing PRD/RP/UI/API/assets and Design Token authority, creates the project, installs dependencies,
+diagnoses the result, and establishes the first traceable task. The remaining command Skills are
+small enough to invoke independently.
+
+`AGENTS.md` is the only project constraint body. Generated `CLAUDE.md` imports it, Cursor receives a
+thin always-applied rule pointing to it, and Codex/Cursor use `.agents/skills` while Claude Code uses
+`.claude/skills`. Install workflows for supported providers with:
+
+```bash
+fe-harness skills install --project --provider all
+fe-harness skills install --global --provider claude
+fe-harness skills install --global --provider cursor
+```
 
 ## Architecture
 
@@ -44,8 +70,12 @@ Core
 ```
 
 Core does not contain product pages, domain states, API endpoints, brand values, or design tokens.
+It also does not import a concrete UI library. Optional UI System Adapters map semantic components and
+project-owned semantic tokens to a selected library; see `docs/UI_SYSTEMS.md`.
 
 ## Status
 
-This repository is an initial `0.1.0` implementation. Publishing, upgrades, API contract adapters,
-and additional project profiles are intentionally deferred until the first H5 pilot is stable.
+This repository is an initial `0.1.0` implementation. Core and CLI packages can be packed for
+registry verification, but the placeholder `@company` scope must be replaced or configured before
+publishing. Publishing, upgrades, API contract adapters, and additional project profiles remain
+explicit release decisions.

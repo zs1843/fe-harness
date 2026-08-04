@@ -1,6 +1,6 @@
 # Current Status
 
-Updated: 2026-08-03
+Updated: 2026-08-04
 
 ## Completed
 
@@ -16,7 +16,7 @@ Updated: 2026-08-03
 - Added the initial `uni-app` Stack Adapter.
 - Added a JSON Schema draft for project configuration.
 - Added a minimal business-neutral uni-app H5 fixture.
-- Added six passing Core and orchestration tests.
+- Added the initial Core and orchestration test suite; the current suite contains 51 passing tests.
 - Verified example Doctor and Audit execution.
 - Initialized an independent Git repository on branch `main`.
 - Strengthened runtime validation for supported project, platform, stack, command, and verification
@@ -25,8 +25,8 @@ Updated: 2026-08-03
 - Changed initialization to preflight every target before writing, report create/unchanged/conflict
   states, and write nothing when any conflict exists.
 - Added consumer-H5 product, current-status, decision, changelog, PRD-input, and UI-input templates.
-- Added focused configuration, Doctor, initialization, and creation tests; 20 Core tests and one fixture
-  structure test now pass.
+- Added focused configuration, Doctor, initialization, creation, UI System protocol, and two independent
+  flow-shape fixture tests; 51 tests now pass.
 - Added lightweight Doctor checks for Node.js 20, package-manager/lockfile consistency, uni-app page
   registration and dependencies, Harness report ignore rules, and optional OpenAPI JSON snapshots.
 - Added an optional `sources.api` configuration protocol for Apifox-exported OpenAPI snapshots,
@@ -56,6 +56,50 @@ Updated: 2026-08-03
   visual verification to pass.
 - Added environment-block classification for local port listen failures so toolchain restrictions
   are not reported as business failures.
+- Added independently invokable Skills for create, init, inspect, plan, doctor, verify, inputs,
+  Design Token, task, Skill installation, and version commands. Generated projects receive the
+  complete Skill set.
+- Upgraded `fe-harness-create` into a composite workflow covering CLI availability, necessary
+  PRD/RP/UI/API/assets and Token-authority questions, dependency installation, initial diagnosis,
+  engineering gates, and first-task history.
+- Added `fe-harness skills list/install` with explicit project/global scopes and safe no-overwrite
+  defaults.
+- Changed project creation to install dependencies by default with an explicit `--skip-install`
+  escape hatch.
+- Added EditorConfig, Prettier, TypeScript-aware ESLint, local CI gate, Vite API proxy environment,
+  typed `uni.request` HTTP wrapper, reusable formatting helpers, and a minimal base component to the
+  consumer-H5 preset.
+- Separated runtime from visual Playwright execution and left interaction explicitly unconfigured
+  until a project supplies a real key flow.
+- Prepared Core and CLI package metadata and CLI resource staging for npm packing. Publishing still
+  requires a real package scope, registry, and explicit release approval.
+- Established root `AGENTS.md` as the single project constraint body. Added thin Claude Code and
+  Cursor adapters, Claude project Skill distribution, provider-aware project/global Skill
+  installation, Inspect visibility, and Doctor drift checks without changing old project schemas.
+- Added the first Apifox/OpenAPI code-generation path for local JSON exports. Tasks connect PRD and
+  API evidence to selected operationIds, preview changes with dry-run, generate TypeScript request/
+  response types and uni-app request wrappers, and refuse to overwrite manually changed generated
+  files. Added the independently invokable `fe-harness-api` Skill.
+- Added a requirement-closure workflow for PRD and HTML RP implementation. Agents must recursively
+  inventory reachable pages, dialogs, states, actions, and return paths instead of stopping at the
+  first-level page. The feature and audit gates now reject active PRD tasks with missing, unresolved,
+  or unverifiable coverage rows; explicit deferrals and external blockers require recorded reasons.
+- Added the framework-neutral UI System protocol, semantic Design Token marker, Page Flow Model,
+  Layout Spec, visual-reference metadata, and structured UI-adjustment classification.
+- Added an experimental TDesign UniApp Adapter descriptor without adding a production UI dependency.
+  The CLI can list and safely install Adapter evidence; Doctor validates selection, version, component
+  catalog, semantic mapping, Token mapping, page transitions, layout sections, and adjustment records.
+- Validated the protocol against two independent fixtures: list-to-detail and form-to-result. These
+  fixtures prove protocol generality only; real-project reduction in visual tuning remains unproven.
+- Changed project creation intake to a two-stage flow: create the project container and standard input
+  directories first, then collect/register PRD, RP, UI, API, and assets before creating the first
+  business task. Empty fresh projects remain explicitly waiting for input.
+- Added UI runtime lifecycle governance: Adapter installation remains dependency-free; an adopted UI
+  runtime must be a version-locked production dependency, and framework replacement requires migration
+  and verification before removing the old runtime.
+- Added read-only existing-project Token discovery across Vue/CSS/SCSS/Less sources. Init now requires
+  active inventory of CSS variables and recurring visual values before confirming semantic Tokens,
+  while preserving existing styles and marking inferred or conflicting candidates explicitly.
 
 ## Verified commands
 
@@ -74,7 +118,9 @@ node ../../packages/cli/bin/fe-harness.mjs verify audit
 - Initialization deliberately provides only a lightweight terminal plan; it does not generate
   conflict patches, perform three-way merges, or roll back exceptional mid-write filesystem errors.
 - Upgrade is not implemented.
-- API/OpenAPI adapters are not implemented.
+- Online Apifox synchronization and token-based OpenAPI fetching are not implemented; the current
+  adapter starts from a local Apifox OpenAPI JSON export. Referenced parameters, advanced media
+  types, discriminator mapping, and provider-specific extensions remain future work.
 - Doctor does not yet validate CI entry points or sensitive source contents beyond file naming and
   `.env*` ignore rules.
 - Platform Adapter defaults are not yet fully materialized automatically; the consumer-H5 preset
@@ -83,6 +129,8 @@ node ../../packages/cli/bin/fe-harness.mjs verify audit
   tool-assisted interpretation.
 - No CI release pipeline, package registry, remote repository, or published npm package exists.
 - No Codex Plugin exists.
+- UI System effectiveness has not yet been measured against two unrelated real projects with real UI
+  references; TDesign UniApp remains experimental and is not a preset dependency.
 
 ## Next recommended task
 

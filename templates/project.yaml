@@ -15,6 +15,10 @@ stack:
   bundler: vite
   package_manager: pnpm
 
+ui:
+  system:
+    status: not_configured
+
 facts:
   agent_entry: AGENTS.md
   project_map: docs/PROJECT_MAP.md
@@ -26,6 +30,9 @@ facts:
   prd_history: docs/history/PRD_HISTORY.md
   change_history: docs/history/CHANGE_HISTORY.md
   implementation_coverage: docs/IMPLEMENTATION_COVERAGE.md
+  page_flow_model: .fe-harness/models/page-flow.yaml
+  layout_specs: .fe-harness/models/layout-specs.yaml
+  ui_adjustments: .fe-harness/ui/adjustments.yaml
 
 # Configure this after exporting an OpenAPI JSON snapshot from Apifox:
 # sources:

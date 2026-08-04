@@ -1,7 +1,16 @@
 {
   "name": "@company/fe-harness-core",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
-  "exports": "./src/index.mjs"
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": "./src/index.mjs",
+  "files": [
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

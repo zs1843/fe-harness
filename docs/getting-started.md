@@ -13,15 +13,27 @@ To create a new consumer H5 project:
 fe-harness plan create my-h5 --json
 fe-harness create my-h5
 cd my-h5
-pnpm install
 pnpm exec playwright install chromium
 fe-harness doctor
 fe-harness verify audit
 ```
 
-The generated `AGENTS.md` and `.agents/skills/consumer-h5-harness/SKILL.md` tell compatible coding
-agents to inspect project facts, ask only for necessary missing information, implement from PRD/UI
-inputs, invoke Harness verification automatically, and update project history.
+`create` 默认使用项目声明的 Corepack/pnpm 安装依赖。离线生成时使用
+`fe-harness create my-h5 --skip-install`，之后手动执行 `pnpm install`。
+
+生成项目包含总工作流 Skill 和每个 CLI 命令对应的独立 Skill。`fe-harness-create` 创建前只确认
+项目名、目录和脚手架技术结构；先生成项目和标准输入目录，再引导用户放入 PRD/RP/UI/API/assets，
+随后执行输入登记、Design Token 确认、全页面分析和首次任务初始化。
+独立 Skills 可通过 `fe-harness skills install --project` 安装到项目，或经用户确认后使用
+`fe-harness skills install --global` 安装到全局 Codex Skills 目录。
+
+项目约束只维护在根目录 `AGENTS.md`。Claude Code 通过 `CLAUDE.md` 导入它；Cursor 会读取
+`AGENTS.md`，并由 `.cursor/rules/fe-harness.mdc` 明确该唯一来源。不要在供应商配置中复制约束。
+多供应商项目可执行：
+
+```bash
+fe-harness skills install --project --provider all
+```
 
 For local Harness development, make `fe-harness` available on `PATH` by linking the package binary
 with a Node.js 20 environment. Published installations should provide the same global command; AI
@@ -38,10 +50,28 @@ Projects own `.fe-harness/project.yaml`; the package only supplies defaults and 
 Initialization performs a complete preflight before writing. Existing identical files are kept;
 if any target differs, initialization reports the conflict and writes nothing.
 
-Consumer H5 projects can place source PRDs and UI references under `.fe-harness/inputs/prd/` and
-`.fe-harness/inputs/ui/`. Coding agents summarize confirmed product facts in `docs/PRODUCT.md`,
-design facts in `docs/DESIGN.md`, current facts in `docs/CURRENT_STATUS.md`, and durable decisions
-in `docs/DECISIONS.md`.
+接入已有项目后必须主动执行存量视觉发现，而不是让新 Token 文件长期停留在空模板：
+
+```bash
+fe-harness design tokens discover --json
+fe-harness design tokens inspect --json
+```
+
+发现命令只读扫描 `src/` 下 Vue/CSS/SCSS/Less 样式，输出 CSS Variables、高频颜色、字体、间距、
+圆角、阴影、尺寸、层级、动效和断点候选。确认后再写入唯一 Token 真值，不自动重写旧样式。
+
+Consumer H5 项目把原始证据分别放入 `.fe-harness/inputs/prd/`、`rp/`、`ui/`、`api/` 和
+`assets/`，并登记到 `manifest.yaml`。原始证据默认只读。Agent 分别按业务、交互和视觉
+优先级分析输入，维护中文事实文档、覆盖矩阵、变更历史和不可变任务快照。
+
+输入收集发生在项目创建之后。输入暂时为空时，项目保持“等待输入”，不要创建虚假业务任务或
+直接实现脚手架示例页。文件放好后依次执行：
+
+```bash
+fe-harness inputs inspect --json
+fe-harness inputs analyze --json
+fe-harness task create --title "根据首批输入实现项目" --json
+```
 
 To consume an Apifox contract, export OpenAPI 3.x JSON through Apifox's official export, script, or
 an MCP integration, store it under `.fe-harness/snapshots/openapi.json`, and enable the commented

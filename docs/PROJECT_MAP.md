@@ -10,13 +10,17 @@ developers, CI pipelines, and coding agents through the same configuration and C
 | Path | Responsibility |
 | --- | --- |
 | `packages/core/` | Configuration loading, verification execution, diagnostics, and reports |
+| `packages/core/src/openapi.mjs` | Task-scoped OpenAPI inspection, TypeScript generation, and managed-file conflict protection |
 | `packages/cli/` | Public command-line interface |
 | `profiles/` | Product-shape verification descriptors |
 | `platforms/` | Runtime and acceptance-platform descriptors |
 | `stacks/` | Framework and toolchain descriptors |
+| `ui-systems/` | 可选 UI System Adapter：组件语义、Token 映射和约束 |
 | `templates/` | Business-neutral files created during initialization |
 | `presets/` | Complete business-neutral projects created by the CLI |
-| `skills/` | Agent workflows copied into generated or initialized projects |
+| `skills/` | 完整 consumer-h5 工作流及每个 CLI 命令对应的可安装 Agent Skills |
+| `templates/CLAUDE.md` | Claude Code 薄适配：导入唯一约束本体 `AGENTS.md` |
+| `templates/CURSOR_RULE.mdc` | Cursor 薄适配：始终指向唯一约束本体 `AGENTS.md` |
 | `schemas/` | Public configuration protocol |
 | `examples/` | Disposable integration fixtures |
 | `tests/` | Harness unit and orchestration tests |
@@ -40,7 +44,7 @@ Core must not import a Profile, Platform Adapter, Stack Adapter, example, or tar
 - `@company/fe-harness-core`: private workspace package containing the initial runtime.
 - `@company/fe-harness`: private CLI package exposing the `fe-harness` executable.
 
-Neither package is published yet.
+两个包均已具备 pack 元数据，但尚未发布；`@company` 仍是待确定的 registry scope。
 
 ## Runtime requirements
 
@@ -57,3 +61,7 @@ tmp/fe-harness/
 ```
 
 Generated reports and dependency directories are ignored by Git.
+
+Consumer-H5 API generation writes `src/types/api.generated.ts`,
+`src/services/api.generated.ts`, and `.fe-harness/api/generated.json`. The selection authority is
+`.fe-harness/api/selection.yaml`; source exports remain under `.fe-harness/inputs/api/`.

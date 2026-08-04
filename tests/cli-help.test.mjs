@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
@@ -29,6 +31,18 @@ test('prints rich help for -h', () => {
   assert.match(result.stdout, /fe-harness verify visual/);
 });
 
+test('prints the same version through command and option aliases', () => {
+  const command = run(['version']);
+  const shortOption = run(['-v']);
+  const longOption = run(['--version']);
+  assert.equal(command.status, 0, command.stderr);
+  assert.equal(shortOption.status, 0, shortOption.stderr);
+  assert.equal(longOption.status, 0, longOption.stderr);
+  assert.equal(shortOption.stdout, command.stdout);
+  assert.equal(longOption.stdout, command.stdout);
+  assert.match(command.stdout, /^0\.1\.0\n$/);
+});
+
 test('prints topic help through help subcommand', () => {
   const result = run(['help', 'verify']);
   assert.equal(result.status, 0, result.stderr);
@@ -48,4 +62,68 @@ test('unknown command exits non-zero and shows main help', () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /未知命令：unknown/);
   assert.match(result.stdout, /命令分组/);
+});
+
+test('lists command skills as stable JSON', () => {
+  const result = run(['skills', 'list', '--json']);
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.ok(payload.skills.includes('fe-harness-create'));
+  assert.ok(payload.skills.includes('fe-harness-verify'));
+  assert.ok(payload.skills.includes('fe-harness-api'));
+  assert.ok(payload.skills.includes('consumer-h5-harness'));
+});
+
+test('lists experimental UI System adapters as stable JSON', () => {
+  const result = run(['ui', 'systems', 'list', '--json']);
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.deepEqual(payload.systems[0], { id: 'tdesign-uniapp', status: 'experimental', version: '0.1.0-experimental' });
+});
+
+test('previews UI System adapter installation without mutation', () => {
+  const result = run(['ui', 'systems', 'install', 'tdesign-uniapp', '--dry-run', '--json']);
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.status, 'ready');
+  assert.equal(payload.config.ui.system.policy, 'preferred');
+});
+
+test('installs an individual skill into an explicit global target', async () => {
+  const target = await mkdtemp(resolve(tmpdir(), 'fe-harness-skills-'));
+  const result = run([
+    'skills',
+    'install',
+    '--global',
+    '--target',
+    target,
+    '--name',
+    'fe-harness-create',
+    '--json',
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.deepEqual(payload.installed, ['fe-harness-create']);
+  assert.match(await readFile(resolve(target, 'fe-harness-create/SKILL.md'), 'utf8'), /创建问答/);
+});
+
+test('installs a Claude skill into an explicit provider target', async () => {
+  const target = await mkdtemp(resolve(tmpdir(), 'fe-harness-claude-skills-'));
+  const result = run([
+    'skills',
+    'install',
+    '--global',
+    '--provider',
+    'claude',
+    '--target',
+    target,
+    '--name',
+    'fe-harness-create',
+    '--json',
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.provider, 'claude');
+  assert.deepEqual(payload.installations[0].providers, ['claude']);
+  assert.match(await readFile(resolve(target, 'fe-harness-create/SKILL.md'), 'utf8'), /创建问答/);
 });

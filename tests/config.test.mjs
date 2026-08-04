@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { resolveVerifySteps, validateProjectConfig } from '../packages/core/src/index.mjs';
+import schema from '../schemas/project.schema.json' with { type: 'json' };
 
 const config = {
   commands: { lint: 'pnpm lint', test: 'pnpm test' },
@@ -78,4 +79,27 @@ test('rejects an unsupported API source provider', () => {
       }),
     /sources\.api\.provider.*sources\.api\.snapshot/s,
   );
+});
+
+test('schema and runtime both support legacy array verification definitions', () => {
+  const verifyDefinition = schema.properties.verify.additionalProperties.oneOf;
+  assert.ok(verifyDefinition.some((definition) => definition.type === 'array'));
+  const legacyConfig = structuredClone(config);
+  legacyConfig.verify.quick = ['lint'];
+  assert.equal(validateProjectConfig(legacyConfig), legacyConfig);
+  assert.equal(resolveVerifySteps(legacyConfig, 'quick').steps.length, 1);
+});
+
+test('validates a generic UI System selection without binding Core to a library', () => {
+  const uiConfig = structuredClone(config);
+  uiConfig.ui = { system: { adapter: 'custom-mobile', version: '2.1.0', policy: 'preferred' } };
+  assert.equal(validateProjectConfig(uiConfig), uiConfig);
+  uiConfig.ui.system.policy = 'sometimes';
+  assert.throws(() => validateProjectConfig(uiConfig), /ui\.system\.policy/);
+});
+
+test('requires package and version for an installed UI runtime', () => {
+  const uiConfig = structuredClone(config);
+  uiConfig.ui = { system: { adapter: 'custom-mobile', version: '2.1.0', policy: 'preferred', runtime: { status: 'installed' } } };
+  assert.throws(() => validateProjectConfig(uiConfig), /runtime\.package.*runtime\.version/s);
 });

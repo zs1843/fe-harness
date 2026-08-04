@@ -58,7 +58,8 @@ export async function runVerification({ cwd, failFast, mode, notConfigured = fal
   for (const step of steps) {
     const result = await runShellCommand(step.command, { cwd });
     const output = `${result.stdout || ''}\n${result.stderr || ''}`;
-    const environmentBlocked = /listen EPERM|EACCES.*listen|operation not permitted.*listen/i.test(output);
+    const environmentBlocked = result.status !== 'passed' &&
+      /listen EPERM|EACCES.*listen|operation not permitted.*listen/i.test(output);
     const visualMissingBaseline =
       mode === 'visual' &&
       /snapshot.*doesn'?t exist|has no baseline|Missing.*snapshot|toHaveScreenshot/i.test(output);

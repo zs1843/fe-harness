@@ -1,32 +1,55 @@
 #!/usr/bin/env node
 
-import { access, appendFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { access, appendFile, copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
   applyInitialization,
+  applyOpenApiGeneration,
   applyProjectCreation,
   analyzeInputs,
   createTaskSnapshot,
+  discoverDesignTokenCandidates,
   inspectDesignTokens,
   inspectInputs,
+  inspectUiGovernance,
   inspectTaskHistory,
   loadProjectConfig,
+  listOpenApiOperations,
   planInitialization,
+  planOpenApiGeneration,
   planProjectCreation,
   publicPlan,
   resolveVerifySteps,
   runDoctor,
+  runShellCommand,
   runVerification,
+  readInputManifest,
   writeReport,
-} from '../../core/src/index.mjs';
+} from '@company/fe-harness-core';
 import YAML from 'yaml';
 
 const cwd = process.cwd();
-const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repositoryRoot = resolve(packageDirectory, '../..');
+const packageRoot = existsSync(resolve(repositoryRoot, 'presets')) ? repositoryRoot : packageDirectory;
+
+async function copyDirectory(source, target, { force = false } = {}) {
+  await mkdir(target, { recursive: true });
+  for (const entry of await readdir(source, { withFileTypes: true })) {
+    const sourcePath = resolve(source, entry.name);
+    const targetPath = resolve(target, entry.name);
+    if (entry.isDirectory()) await copyDirectory(sourcePath, targetPath, { force });
+    else if (force || !(await exists(targetPath))) await copyFile(sourcePath, targetPath);
+  }
+}
 const initFiles = [
   ['templates/AGENTS.md', 'AGENTS.md'],
+  ['templates/CLAUDE.md', 'CLAUDE.md'],
+  ['templates/CURSOR_RULE.mdc', '.cursor/rules/fe-harness.mdc'],
   ['templates/PROJECT_MAP.md', 'docs/PROJECT_MAP.md'],
   ['templates/DESIGN.md', 'docs/DESIGN.md'],
   ['templates/PRODUCT.md', 'docs/PRODUCT.md'],
@@ -39,6 +62,7 @@ const initFiles = [
   ['templates/RP_INPUT.md', '.fe-harness/inputs/rp/README.md'],
   ['templates/UI_INPUT.md', '.fe-harness/inputs/ui/README.md'],
   ['templates/API_INPUT.md', '.fe-harness/inputs/api/README.md'],
+  ['templates/API_SELECTION.yaml', '.fe-harness/api/selection.yaml'],
   ['templates/ASSETS_INPUT.md', '.fe-harness/inputs/assets/README.md'],
   ['templates/SNAPSHOTS.md', '.fe-harness/snapshots/README.md'],
   ['templates/PRD_HISTORY.md', 'docs/history/PRD_HISTORY.md'],
@@ -47,8 +71,9 @@ const initFiles = [
   ['templates/TOKENS.json', 'docs/design/tokens.json'],
   ['templates/TOKENS.md', 'docs/design/TOKENS.md'],
   ['templates/COMPONENTS.md', 'docs/design/COMPONENTS.md'],
-  ['skills/consumer-h5-harness/SKILL.md', '.agents/skills/consumer-h5-harness/SKILL.md'],
-  ['skills/consumer-h5-harness/agents/openai.yaml', '.agents/skills/consumer-h5-harness/agents/openai.yaml'],
+  ['templates/PAGE_FLOW_MODEL.yaml', '.fe-harness/models/page-flow.yaml'],
+  ['templates/LAYOUT_SPECS.yaml', '.fe-harness/models/layout-specs.yaml'],
+  ['templates/UI_ADJUSTMENTS.yaml', '.fe-harness/ui/adjustments.yaml'],
   ['templates/project.yaml', '.fe-harness/project.yaml'],
 ];
 
@@ -78,29 +103,39 @@ const HELP = {
   doctor      只读诊断项目配置、输入、历史、Token、脚本和验证能力
   verify      执行 quick/feature/runtime/interaction/visual/audit
   inputs      查看、比对和分析 PRD/RP/UI/API/assets 输入
+  api         检查 OpenAPI，并按 PRD 任务生成接口类型和请求封装
   design      查看 Design Token 真值文件
   task        创建任务、查看历史、创建不可变任务快照
+  skills      列出或安装 fe-harness Skills
+  ui          列出或安装 UI System Adapter
   version     输出 fe-harness 版本
 
 全局选项：
   -h, --help  显示帮助
+  -v, --version  输出 fe-harness 版本
   --json      输出稳定 JSON，适合 Agent 和 CI
 
 更多示例：
   fe-harness inputs analyze --json
+  fe-harness api inspect --task T001 --json
+  fe-harness api generate --task T001 --dry-run
   fe-harness design tokens inspect --json
   fe-harness task create T001 --title "酒店搜索与列表"
   fe-harness task snapshot T001 --title "酒店搜索与列表" --request "完成列表样式"
+  fe-harness skills install --project --provider all
+  fe-harness skills install --global --provider claude
 `,
   create: `fe-harness create - 创建新的 consumer-h5 项目
 
 用法：
-  fe-harness create <项目名> [--output <目录>] [--dry-run] [--json]
+  fe-harness create <项目名> [--output <目录>] [--dry-run] [--skip-install] [--json]
 
 说明：
   项目名只能使用小写字母、数字和连字符。
   默认输出到当前目录下的同名子目录。
-  create 会生成中文 AGENTS、输入目录、历史目录、Token 文件、uni-app H5 最小工程和测试基础设施。
+  create 会生成中文 AGENTS、输入目录、历史目录、Token 文件、uni-app H5 最小工程和测试基础设施，并默认安装依赖。
+  create 不要求提前提供 PRD/RP/UI；项目创建后会输出标准输入目录，再进入输入登记和任务分析阶段。
+  离线创建或暂不安装依赖时使用 --skip-install。
 
 示例：
   fe-harness create hotel-h5
@@ -180,11 +215,26 @@ const HELP = {
   diff 汇总需要处理的输入变化。
   analyze 对文本 PRD/RP/UI 抽取基础证据，并记录同名字段冲突。
 `,
+  api: `fe-harness api - Apifox/OpenAPI 接口生成
+
+用法：
+  fe-harness api inspect --task T001 [--json]
+  fe-harness api generate --task T001 [--dry-run] [--json]
+
+配置：
+  在 .fe-harness/api/selection.yaml 中为任务关联 PRD 输入、API 输入和 operationId。
+  API 输入必须登记在 .fe-harness/inputs/manifest.yaml，首版接受 Apifox 导出的 OpenAPI JSON。
+
+原则：
+  PRD 决定本任务使用哪些接口；OpenAPI 决定路径、方法、请求和响应字段。
+  生成文件有哈希保护，检测到手工修改时不会覆盖。
+`,
   design: `fe-harness design - 设计与 Token 工具
 
 用法：
   fe-harness design tokens inspect [--json]
   fe-harness design tokens diff [--json]
+  fe-harness design tokens discover [--json]
 
 说明：
   当前支持检查唯一机器可读 Token 真值文件。
@@ -207,6 +257,29 @@ const HELP = {
 
 用法：
   fe-harness version
+  fe-harness -v
+  fe-harness --version
+`,
+  skills: `fe-harness skills - 管理命令 Skills
+
+用法：
+  fe-harness skills list [--json]
+  fe-harness skills install --project [--provider codex|claude|cursor|all] [--name <名称>] [--force]
+  fe-harness skills install --global [--provider codex|claude|cursor|all] [--name <名称>] [--target <目录>] [--force]
+
+说明：
+  --provider 默认为 codex；all 会同步 Codex、Claude Code 和 Cursor。
+  项目级 Codex/Cursor 共用 .agents/skills；Claude Code 使用 .claude/skills。
+  全局默认目录分别为 ~/.codex/skills、~/.claude/skills、~/.cursor/skills。
+  已存在且未指定 --force 时不会覆盖。
+`,
+  ui: `fe-harness ui - 管理 UI System Adapter
+
+用法：
+  fe-harness ui systems list [--json]
+  fe-harness ui systems install <名称> [--dry-run] [--json]
+
+Adapter 不会自动修改项目依赖或 project.yaml；安装后按输出片段显式选择并锁定版本。
 `,
 };
 
@@ -241,7 +314,19 @@ function printPlan(plan) {
 }
 
 async function initializationPlan() {
-  return planInitialization({ cwd, files: initFiles, templateRoot: packageRoot });
+  return planInitialization({ cwd, files: await initializationFiles(), templateRoot: packageRoot });
+}
+
+async function skillFiles() {
+  const root = resolve(packageRoot, 'skills');
+  return (await listFiles(root)).flatMap((path) => [
+    [`skills/${path}`, `.agents/skills/${path}`],
+    [`skills/${path}`, `.claude/skills/${path}`],
+  ]);
+}
+
+async function initializationFiles() {
+  return [...initFiles, ...(await skillFiles())];
 }
 
 async function init() {
@@ -250,17 +335,17 @@ async function init() {
   else printPlan(plan);
   if (has('--dry-run')) return;
   if (plan.status === 'conflict') throw new Error('初始化存在文件冲突，未写入任何文件');
-  await applyInitialization({ cwd, files: initFiles, plan, templateRoot: packageRoot });
+  await applyInitialization({ cwd, files: await initializationFiles(), plan, templateRoot: packageRoot });
 }
 
 async function creationPlan(name) {
   if (!name || !/^[a-z0-9][a-z0-9-]*$/.test(name)) throw new Error('项目名必须使用小写字母、数字和连字符');
   const presetRoot = resolve(packageRoot, 'presets/consumer-h5');
   const files = await listFiles(presetRoot);
-  files.push(
-    { source: resolve(packageRoot, 'skills/consumer-h5-harness/SKILL.md'), target: '.agents/skills/consumer-h5-harness/SKILL.md' },
-    { source: resolve(packageRoot, 'skills/consumer-h5-harness/agents/openai.yaml'), target: '.agents/skills/consumer-h5-harness/agents/openai.yaml' },
-  );
+  for (const path of await listFiles(resolve(packageRoot, 'skills'))) {
+    files.push({ source: resolve(packageRoot, 'skills', path), target: `.agents/skills/${path}` });
+    files.push({ source: resolve(packageRoot, 'skills', path), target: `.claude/skills/${path}` });
+  }
   return planProjectCreation({ name, output: resolve(option('--output') || resolve(cwd, name)), presetRoot, files });
 }
 
@@ -270,13 +355,137 @@ async function create(name) {
   else printPlan(plan);
   if (has('--dry-run')) return;
   await applyProjectCreation(plan);
-  console.log(`Created ${name}. Next: cd ${plan.output} && pnpm install && fe-harness doctor`);
+  console.log(`已创建项目 ${name}：${plan.output}`);
+  if (!has('--skip-install')) {
+    console.log('正在使用项目声明的 pnpm/Corepack 安装依赖……');
+    const installation = await runShellCommand('corepack pnpm install', { cwd: plan.output });
+    if (installation.status !== 'passed') {
+      throw new Error('项目已创建，但依赖安装失败。请检查 Node.js 20、Corepack 和 registry 后重试 pnpm install');
+    }
+    console.log('依赖安装完成。');
+  }
+  const inputRoot = resolve(plan.output, '.fe-harness/inputs');
+  console.log('\n项目容器已准备好。现在请把原始输入文件放入以下目录：');
+  console.log(`PRD  → ${resolve(inputRoot, 'prd')}`);
+  console.log(`RP   → ${resolve(inputRoot, 'rp')}`);
+  console.log(`UI   → ${resolve(inputRoot, 'ui')}`);
+  console.log(`API  → ${resolve(inputRoot, 'api')}`);
+  console.log(`资产 → ${resolve(inputRoot, 'assets')}`);
+  console.log('\n输入可以暂时为空；不要在项目创建前阻塞等待这些文件。');
+  console.log(`文件放好后：cd ${plan.output}`);
+  console.log('然后执行：fe-harness inputs inspect --json');
+  console.log('继续分析：fe-harness inputs analyze --json');
+  console.log('确认输入后创建首个任务：fe-harness task create --title "根据首批输入实现项目" --json');
+  console.log('最后执行：fe-harness doctor');
+}
+
+async function skills(command = 'list') {
+  if (wantsHelp(command)) return printHelp('skills');
+  const sourceRoot = resolve(packageRoot, 'skills');
+  const names = (await readdir(sourceRoot, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+  if (command === 'list') {
+    console.log(has('--json') ? JSON.stringify({ skills: names }, null, 2) : names.join('\n'));
+    return;
+  }
+  if (command !== 'install') throw new Error('skills 仅支持 list 或 install');
+  const requested = option('--name');
+  if (requested && !names.includes(requested)) throw new Error(`不存在 Skill：${requested}`);
+  const selected = requested ? [requested] : names;
+  const global = has('--global');
+  if (!global && !has('--project')) throw new Error('请明确指定 --project 或 --global');
+  const provider = option('--provider') || 'codex';
+  if (!['codex', 'claude', 'cursor', 'all'].includes(provider)) {
+    throw new Error('--provider 必须是 codex、claude、cursor 或 all');
+  }
+  if (option('--target') && provider === 'all') throw new Error('--target 不能与 --provider all 同时使用');
+  const providers = provider === 'all' ? ['codex', 'claude', 'cursor'] : [provider];
+  const roots = [];
+  for (const currentProvider of providers) {
+    const targetRoot = option('--target')
+      ? resolve(option('--target'))
+      : global
+        ? currentProvider === 'codex'
+          ? resolve(process.env.CODEX_HOME || resolve(homedir(), '.codex'), 'skills')
+          : resolve(homedir(), currentProvider === 'claude' ? '.claude/skills' : '.cursor/skills')
+        : resolve(cwd, currentProvider === 'claude' ? '.claude/skills' : '.agents/skills');
+    if (!roots.some((item) => item.target === targetRoot)) {
+      roots.push({ providers: [currentProvider], target: targetRoot });
+    } else {
+      roots.find((item) => item.target === targetRoot).providers.push(currentProvider);
+    }
+  }
+  const installed = [];
+  const skipped = [];
+  const installations = [];
+  for (const root of roots) {
+    const rootInstalled = [];
+    const rootSkipped = [];
+    for (const name of selected) {
+      const target = resolve(root.target, name);
+      if ((await exists(target)) && !has('--force')) {
+        skipped.push(name);
+        rootSkipped.push(name);
+        continue;
+      }
+      await mkdir(root.target, { recursive: true });
+      await copyDirectory(resolve(sourceRoot, name), target, { force: has('--force') });
+      installed.push(name);
+      rootInstalled.push(name);
+    }
+    installations.push({ installed: rootInstalled, providers: root.providers, skipped: rootSkipped, target: root.target });
+  }
+  const uniqueInstalled = [...new Set(installed)];
+  const uniqueSkipped = [...new Set(skipped)];
+  const payload = {
+    installations,
+    installed: uniqueInstalled,
+    provider,
+    scope: global ? 'global' : 'project',
+    skipped: uniqueSkipped,
+    target: roots.length === 1 ? roots[0].target : null,
+    targets: roots.map((item) => item.target),
+  };
+  console.log(has('--json') ? JSON.stringify(payload, null, 2) : `已安装 ${uniqueInstalled.length} 个 Skill，跳过 ${uniqueSkipped.length} 个：${payload.targets.join(', ')}`);
+}
+
+async function ui(subject = 'systems', command = 'list', name) {
+  if (subject !== 'systems' || wantsHelp(command)) return printHelp('ui');
+  const sourceRoot = resolve(packageRoot, 'ui-systems');
+  const names = (await readdir(sourceRoot, { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+  if (command === 'list') {
+    const systems = [];
+    for (const current of names) {
+      const descriptor = YAML.parse(await readFile(resolve(sourceRoot, current, 'adapter.yaml'), 'utf8'));
+      systems.push({ id: descriptor.id, status: descriptor.status, version: descriptor.version });
+    }
+    console.log(has('--json') ? JSON.stringify({ systems }, null, 2) : systems.map((item) => `${item.id}@${item.version} (${item.status})`).join('\n'));
+    return;
+  }
+  if (command !== 'install' || !name || !names.includes(name)) throw new Error('请指定可用的 UI System Adapter');
+  const source = resolve(sourceRoot, name, 'adapter.yaml');
+  const target = resolve(cwd, `.fe-harness/ui-systems/${name}/adapter.yaml`);
+  const descriptor = YAML.parse(await readFile(source, 'utf8'));
+  const payload = {
+    action: 'install-ui-system',
+    config: { facts: { ui_system_adapter: `.fe-harness/ui-systems/${name}/adapter.yaml` }, ui: { system: { adapter: descriptor.id, policy: 'preferred', version: descriptor.version } } },
+    status: (await exists(target)) ? 'conflict' : 'ready',
+    target: relative(cwd, target),
+  };
+  console.log(has('--json') || has('--dry-run') ? JSON.stringify(payload, null, 2) : `${payload.status} ${payload.target}`);
+  if (has('--dry-run')) return;
+  if (payload.status === 'conflict') throw new Error('目标 Adapter 已存在，拒绝覆盖');
+  await mkdir(dirname(target), { recursive: true });
+  await copyFile(source, target);
 }
 
 async function inspect() {
   const { config, path } = await loadProjectConfig(cwd);
   const inputInspection = await inspectInputs(cwd);
   const tokenInspection = await inspectDesignTokens(cwd, config);
+  const uiInspection = config.project?.product_type === 'consumer_h5' ? await inspectUiGovernance(cwd, config) : null;
   const facts = {};
   for (const [name, value] of Object.entries(config.facts || {})) facts[name] = await exists(resolve(cwd, value));
   const payload = {
@@ -290,6 +499,12 @@ async function inspect() {
       source: tokenInspection.source || null,
       status: tokenInspection.status,
     },
+    uiSystem: uiInspection ? {
+      adapter: config.ui?.system?.adapter || null,
+      issues: uiInspection.issues.length,
+      status: uiInspection.status,
+      version: config.ui?.system?.version || null,
+    } : null,
     inputs: {
       count: inputInspection.inputs.length,
       manifest: inputInspection.manifest,
@@ -297,6 +512,10 @@ async function inspect() {
       unregistered: inputInspection.discovered.length,
     },
     agentWorkflow: {
+      canonicalConstraints: await exists(resolve(cwd, 'AGENTS.md')),
+      claudeAdapter: await exists(resolve(cwd, 'CLAUDE.md')),
+      claudeSkills: await exists(resolve(cwd, '.claude/skills/consumer-h5-harness/SKILL.md')),
+      cursorAdapter: await exists(resolve(cwd, '.cursor/rules/fe-harness.mdc')),
       guide: await exists(resolve(cwd, config.facts?.agent_entry || 'AGENTS.md')),
       skill: await exists(resolve(cwd, '.agents/skills/consumer-h5-harness/SKILL.md')),
       cli: true,
@@ -365,6 +584,73 @@ async function inputs(command) {
   for (const issue of inspection.issues) console.log(`- ${issue.display_name}：${issue.message}`);
 }
 
+async function apiContext(taskId) {
+  if (!taskId || !/^T\d+$/.test(taskId)) throw new Error('请使用 --task T001 指定任务');
+  const selectionPath = resolve(cwd, '.fe-harness/api/selection.yaml');
+  if (!(await exists(selectionPath))) throw new Error('缺少 .fe-harness/api/selection.yaml');
+  const selection = YAML.parse(await readFile(selectionPath, 'utf8')) || {};
+  const taskSelection = selection.tasks?.[taskId];
+  if (!taskSelection) throw new Error(`selection.yaml 未配置任务 ${taskId}`);
+  if (!Array.isArray(taskSelection.operations) || !taskSelection.operations.length) {
+    throw new Error(`任务 ${taskId} 尚未选择 operation`);
+  }
+  const manifest = await readInputManifest(cwd);
+  const apiInput = manifest.inputs.find((item) => item.id === taskSelection.api_input && item.type === 'api' && item.status !== 'superseded');
+  if (!apiInput) throw new Error(`manifest 中找不到 API 输入 ${taskSelection.api_input || '<missing>'}`);
+  const prdInputs = Array.isArray(taskSelection.prd_inputs) ? taskSelection.prd_inputs : [];
+  const missingPrd = prdInputs.filter((id) => !manifest.inputs.some((item) => item.id === id && item.type === 'prd'));
+  if (missingPrd.length) throw new Error(`manifest 中找不到 PRD 输入：${missingPrd.join(', ')}`);
+  const sourcePath = resolve(cwd, apiInput.path || '');
+  if (!(await exists(sourcePath))) throw new Error(`API 输入文件不存在：${apiInput.path}`);
+  let document;
+  try { document = JSON.parse(await readFile(sourcePath, 'utf8')); } catch { throw new Error('API 输入不是有效 JSON；首版请从 Apifox 导出 OpenAPI JSON'); }
+  return { apiInput, document, prdInputs, sourcePath: apiInput.path, taskId, taskSelection };
+}
+
+async function api(command) {
+  if (wantsHelp(command) || !command) return printHelp('api');
+  if (!['inspect', 'generate'].includes(command)) throw new Error('api 仅支持 inspect 或 generate');
+  const context = await apiContext(option('--task'));
+  const available = listOpenApiOperations(context.document);
+  const selected = new Set(context.taskSelection.operations);
+  const missing = [...selected].filter((operationId) => !available.some((item) => item.operationId === operationId));
+  if (missing.length) throw new Error(`OpenAPI 中找不到 operation：${missing.join(', ')}`);
+  if (command === 'inspect') {
+    const payload = {
+      apiInput: context.apiInput.id,
+      availableOperations: available,
+      prdInputs: context.prdInputs,
+      selectedOperations: available.filter((item) => selected.has(item.operationId)),
+      sourcePath: context.sourcePath,
+      taskId: context.taskId,
+    };
+    console.log(has('--json') ? JSON.stringify(payload, null, 2) : `任务 ${context.taskId}：已选择 ${payload.selectedOperations.length}/${available.length} 个接口`);
+    return;
+  }
+  const generation = await planOpenApiGeneration({
+    cwd,
+    document: context.document,
+    operationIds: context.taskSelection.operations,
+    sourcePath: context.sourcePath,
+    taskId: context.taskId,
+  });
+  const payload = {
+    entries: generation.entries.map(({ content: _content, ...entry }) => entry),
+    metadataPath: generation.metadataPath,
+    operations: generation.metadata.operations,
+    status: generation.status,
+    taskId: context.taskId,
+  };
+  if (has('--json') || has('--dry-run')) console.log(JSON.stringify(payload, null, 2));
+  else for (const entry of payload.entries) console.log(`${entry.status.padEnd(14)} ${entry.target}`);
+  if (has('--dry-run')) {
+    if (generation.status === 'conflict') process.exitCode = 1;
+    return;
+  }
+  await applyOpenApiGeneration(cwd, generation);
+  if (!has('--json')) console.log(`已为任务 ${context.taskId} 生成 ${generation.metadata.operations.length} 个接口封装`);
+}
+
 async function design(command, subject) {
   if (wantsHelp(command) || wantsHelp(subject)) {
     printHelp('design');
@@ -372,6 +658,12 @@ async function design(command, subject) {
   }
   if (command !== 'tokens') throw new Error('design 目前仅支持 tokens');
   const { config } = await loadProjectConfig(cwd);
+  if (subject === 'discover') {
+    const discovery = await discoverDesignTokenCandidates(cwd);
+    if (has('--json')) console.log(JSON.stringify(discovery, null, 2));
+    else console.log(discovery.summary);
+    return;
+  }
   const inspection = await inspectDesignTokens(cwd, config);
   if (has('--json')) {
     console.log(JSON.stringify(inspection, null, 2));
@@ -466,6 +758,9 @@ async function task(command, taskId) {
 
 async function main() {
   const [, , command, argument, secondArgument, thirdArgument] = process.argv;
+  if (command === '-v' || command === '--version') {
+    return console.log((await readFile(resolve(packageRoot, 'VERSION'), 'utf8')).trim());
+  }
   if (command === 'help') return printHelp(argument || 'main');
   if (!command || wantsHelp(command)) return printHelp('main');
   if (command === 'init') return init();
@@ -484,8 +779,11 @@ async function main() {
   }
   if (command === 'verify') return verify(argument);
   if (command === 'inputs') return inputs(argument || 'inspect');
+  if (command === 'api') return api(argument);
   if (command === 'design') return design(argument, secondArgument || 'inspect');
   if (command === 'task') return task(argument, secondArgument, thirdArgument);
+  if (command === 'skills') return skills(argument || 'list');
+  if (command === 'ui') return ui(argument, secondArgument, thirdArgument);
   if (command === 'version') {
     if (wantsHelp(argument)) return printHelp('version');
     return console.log((await readFile(resolve(packageRoot, 'VERSION'), 'utf8')).trim());

@@ -1,9 +1,11 @@
 import { access, readFile, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { basename, dirname, resolve } from 'node:path';
 
-import { inspectDesignTokens } from './design.mjs';
+import { discoverDesignTokenCandidates, inspectDesignTokens } from './design.mjs';
 import { inspectInputs, inspectTaskMetadata } from './inputs.mjs';
 import { displayStatus } from './status.mjs';
+import { inspectUiGovernance } from './ui-system.mjs';
 
 async function exists(path) {
   try {
@@ -106,6 +108,35 @@ async function checkOpenApi(cwd, config) {
   }
 }
 
+async function checkApiGeneration(cwd, config) {
+  if (config.project?.product_type !== 'consumer_h5') {
+    return result('API_GENERATION', 'api-generation', 'not_applicable', '非 consumer-h5 项目');
+  }
+  const metadataPath = resolve(cwd, '.fe-harness/api/generated.json');
+  if (!(await exists(metadataPath))) {
+    return result('API_GENERATION', 'api-generation', 'not_configured', '尚未生成任务级接口代码');
+  }
+  try {
+    const metadata = JSON.parse(await readFile(metadataPath, 'utf8'));
+    const mismatches = [];
+    for (const [path, record] of Object.entries(metadata.outputs || {})) {
+      const target = resolve(cwd, path);
+      if (!(await exists(target))) { mismatches.push(path); continue; }
+      const digest = createHash('sha256').update(await readFile(target)).digest('hex');
+      if (digest !== record.sha256) mismatches.push(path);
+    }
+    return result(
+      'API_GENERATION',
+      'api-generation',
+      mismatches.length ? 'failed' : 'passed',
+      mismatches.length ? `生成文件已丢失或被修改：${mismatches.join(', ')}` : `任务 ${metadata.task_id} 的接口生成文件完整`,
+      mismatches.length ? '运行 fe-harness api generate --task <任务号> --dry-run，迁移手工改动后重新生成' : undefined,
+    );
+  } catch {
+    return result('API_GENERATION', 'api-generation', 'failed', '接口生成元数据无效');
+  }
+}
+
 async function checkUniAppPageRegistry(cwd, relativePath) {
   const absolutePath = resolve(cwd, relativePath);
   if (!(await exists(absolutePath))) {
@@ -192,6 +223,51 @@ async function checkAgentWorkflow(cwd, config) {
     missing.length ? 'failed' : 'passed',
     missing.length ? `Agent 工作流缺少命令约定：${missing.join(', ')}` : 'Agent 自动调用工作流已配置',
     missing.length ? '更新 AGENTS.md 和项目 Skill 的自动验证规则' : undefined,
+  );
+}
+
+async function checkAgentAdapters(cwd, config) {
+  if (config.project?.product_type !== 'consumer_h5') {
+    return result('AGENT_ADAPTERS', 'agent-adapters', 'not_applicable', '非 consumer-h5 项目');
+  }
+  const canonicalPath = resolve(cwd, config.facts?.agent_entry || 'AGENTS.md');
+  if (!(await exists(canonicalPath))) {
+    return result('AGENT_ADAPTERS', 'agent-adapters', 'failed', '缺少唯一 Agent 约束本体 AGENTS.md');
+  }
+  const claudePath = resolve(cwd, 'CLAUDE.md');
+  const cursorPath = resolve(cwd, '.cursor/rules/fe-harness.mdc');
+  const claudeSkillPath = resolve(cwd, '.claude/skills/consumer-h5-harness/SKILL.md');
+  const missing = [];
+  if (!(await exists(claudePath))) missing.push('CLAUDE.md');
+  if (!(await exists(cursorPath))) missing.push('.cursor/rules/fe-harness.mdc');
+  if (!(await exists(claudeSkillPath))) missing.push('.claude/skills/consumer-h5-harness/SKILL.md');
+  if (missing.length) {
+    return result(
+      'AGENT_ADAPTERS',
+      'agent-adapters',
+      'not_configured',
+      `供应商适配尚未完整配置：${missing.join(', ')}`,
+      '执行 fe-harness plan init，确认后执行 fe-harness init；或运行 fe-harness skills install --project --provider all',
+    );
+  }
+  const [claude, cursor] = await Promise.all([
+    readFile(claudePath, 'utf8'),
+    readFile(cursorPath, 'utf8'),
+  ]);
+  const invalid = [];
+  if (!claude.includes('@AGENTS.md')) invalid.push('CLAUDE.md 未导入 AGENTS.md');
+  if (!cursor.includes('AGENTS.md') || !cursor.includes('alwaysApply: true')) {
+    invalid.push('Cursor Rule 未始终指向 AGENTS.md');
+  }
+  if (claude.length > 2000 || cursor.length > 2000) invalid.push('供应商适配文件过大，可能复制了约束正文');
+  return result(
+    'AGENT_ADAPTERS',
+    'agent-adapters',
+    invalid.length ? 'needs_confirmation' : 'passed',
+    invalid.length
+      ? `供应商适配可能偏离唯一约束本体：${invalid.join('；')}`
+      : 'Codex、Claude Code 和 Cursor 均指向唯一约束本体 AGENTS.md',
+    invalid.length ? '将供应商文件收敛为只导入或指向 AGENTS.md 的薄适配层' : undefined,
   );
 }
 
@@ -282,6 +358,16 @@ async function checkDesignGovernance(cwd, config) {
     if (issue.code === 'DESIGN_TOKEN_SOURCE') continue;
     results.push(result(issue.code, issue.code.toLowerCase(), issue.status, issue.message));
   }
+  const discovery = await discoverDesignTokenCandidates(cwd);
+  if (tokenInspection.status !== 'passed' && discovery.scannedFiles) {
+    results.push(result(
+      'DESIGN_TOKEN_EXISTING_STYLE_CANDIDATES',
+      'design-token-existing-style-candidates',
+      'needs_confirmation',
+      discovery.summary,
+      '运行 fe-harness design tokens discover --json，确认存量风格后写入语义 Token 真值',
+    ));
+  }
   const tokenDiffReadme = await exists(resolve(cwd, 'docs/history/tasks'));
   results.push(
     result(
@@ -295,6 +381,9 @@ async function checkDesignGovernance(cwd, config) {
 }
 
 async function checkVisualGovernance(cwd, config) {
+  if (config.project?.product_type !== 'consumer_h5') {
+    return result('VISUAL_BASELINE', 'visual-baseline', 'not_applicable', '非 consumer-h5 项目');
+  }
   const visual = config.verify?.visual;
   const configured = visual && visual.status !== 'not_configured' && Array.isArray(visual.commands) && visual.commands.length;
   const baselinePresent =
@@ -352,8 +441,24 @@ export async function runDoctor(cwd, config) {
     );
   }
 
-  if (await exists(resolve(cwd, 'vitest.config.ts'))) {
-    const source = await readFile(resolve(cwd, 'vitest.config.ts'), 'utf8');
+  const packageJson = packageJsonPresent
+    ? JSON.parse(await readFile(packageJsonPath, 'utf8'))
+    : {};
+  const configuredTestCommand = String(config.commands?.unit_test || packageJson.scripts?.test || '');
+  const configuredScript = configuredTestCommand.match(/^(?:pnpm|npm run|yarn) ([\w:-]+)/)?.[1];
+  const testCommand = configuredScript && packageJson.scripts?.[configuredScript]
+    ? String(packageJson.scripts[configuredScript])
+    : configuredTestCommand;
+  const vitestConfigs = ['vitest.config.ts', 'vitest.config.js', 'vitest.config.mts', 'vitest.config.mjs'];
+  let vitestConfig;
+  for (const name of vitestConfigs) {
+    if (await exists(resolve(cwd, name))) {
+      vitestConfig = name;
+      break;
+    }
+  }
+  if (vitestConfig) {
+    const source = await readFile(resolve(cwd, vitestConfig), 'utf8');
     const overlapsE2e =
       source.includes("tests/**/*.{test,spec}.ts") && !source.includes("tests/e2e/**");
     results.push(
@@ -365,15 +470,35 @@ export async function runDoctor(cwd, config) {
         overlapsE2e ? '在 Vitest 配置中排除 tests/e2e/**' : undefined,
       ),
     );
+  } else if (/node\s+--test(?:\s|$)/.test(testCommand)) {
+    results.push(result('TEST_ISOLATION', 'test-isolation', 'passed', 'Node.js test runner 使用显式测试命令'));
+  } else if (/playwright\s+test/.test(testCommand)) {
+    results.push(result('TEST_ISOLATION', 'test-isolation', 'needs_confirmation', '主测试命令直接运行 Playwright，请确认未混入单元测试'));
   } else {
     results.push(
-      result('TEST_ISOLATION_NOT_CONFIGURED', 'test-isolation', 'not_configured', '未检测到 Vitest 配置'),
+      result('TEST_ISOLATION_NOT_CONFIGURED', 'test-isolation', 'not_configured', '未识别可判断隔离性的测试运行器配置'),
     );
   }
 
-  const packageJson = packageJsonPresent
-    ? JSON.parse(await readFile(packageJsonPath, 'utf8'))
-    : {};
+  const enginesNode = packageJson.engines?.node;
+  results.push(result(
+    'NODE_ENGINE_DECLARATION',
+    'node-engine-declaration',
+    enginesNode && /20|>=\s*20|\^20/.test(enginesNode) ? 'passed' : 'not_configured',
+    enginesNode ? `package.json 声明 Node.js ${enginesNode}` : 'package.json 未声明 engines.node',
+    enginesNode ? undefined : '在 package.json 中声明 engines.node >=20',
+  ));
+
+  const ciCandidates = ['.gitlab-ci.yml', '.github/workflows', 'Jenkinsfile'];
+  const ciEntry = [];
+  for (const candidate of ciCandidates) if (await exists(resolve(cwd, candidate))) ciEntry.push(candidate);
+  results.push(result(
+    'CI_ENTRY_POINT',
+    'ci-entry-point',
+    ciEntry.length ? 'passed' : 'not_configured',
+    ciEntry.length ? `检测到 CI 入口：${ciEntry.join(', ')}` : '未检测到 CI 入口',
+    ciEntry.length ? undefined : '配置 GitLab CI、GitHub Actions 或 Jenkins 入口并执行 Harness gate',
+  ));
 
   const packageManager = config.stack?.package_manager;
   if (packageManager) {
@@ -447,10 +572,17 @@ export async function runDoctor(cwd, config) {
   }
 
   results.push(await checkOpenApi(cwd, config));
+  results.push(await checkApiGeneration(cwd, config));
   results.push(await checkAgentWorkflow(cwd, config));
+  results.push(await checkAgentAdapters(cwd, config));
   results.push(...(await checkConsumerInputs(cwd, config)));
   results.push(...(await checkTaskAndHistory(cwd, config)));
   results.push(...(await checkDesignGovernance(cwd, config)));
+  if (config.project?.product_type === 'consumer_h5') {
+    const uiGovernance = await inspectUiGovernance(cwd, config);
+    results.push(...uiGovernance.issues.map((item) => result(item.code, item.code.toLowerCase(), item.status, item.message, item.suggestion)));
+    if (!uiGovernance.issues.length) results.push(result('UI_GOVERNANCE', 'ui-governance', 'passed', `UI System ${config.ui.system.adapter}@${config.ui.system.version} 及页面模型已就绪`));
+  }
   results.push(await checkVisualGovernance(cwd, config));
   for (const [name, command] of Object.entries(config.commands || {})) {
     const scriptMatch = String(command).match(/^(?:pnpm|npm run|yarn) ([\w:-]+)/);

@@ -4,6 +4,14 @@
 
 保存 OpenAPI、接口文档、接口截图、字段说明和错误码说明。
 
+Apifox 导出的 OpenAPI 3.x JSON 先登记到 `.fe-harness/inputs/manifest.yaml`，再在
+`.fe-harness/api/selection.yaml` 按任务关联 PRD、API 输入和 operationId。运行
+`fe-harness api inspect --task T001` 检查，再用 `fe-harness api generate --task T001`
+生成 `src/types/api.generated.ts` 和 `src/services/api.generated.ts`。
+
+PRD 决定任务需要哪些接口；OpenAPI 决定路径、方法、请求和响应字段。生成文件受哈希
+保护，检测到手工修改时 CLI 会拒绝覆盖。
+
 ## 支持形式
 
 JSON、YAML、Markdown、HTML、PDF、图片或项目确认的接口文档导出。

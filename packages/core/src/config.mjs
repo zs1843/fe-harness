@@ -3,6 +3,8 @@ import { resolve } from 'node:path';
 
 import YAML from 'yaml';
 
+import { validateUiSystemConfig } from './ui-system.mjs';
+
 export async function loadProjectConfig(cwd, configPath = '.fe-harness/project.yaml') {
   const absolutePath = resolve(cwd, configPath);
   const source = await readFile(absolutePath, 'utf8');
@@ -75,6 +77,7 @@ export function validateProjectConfig(config) {
       }
     }
   }
+  issues.push(...validateUiSystemConfig(config));
   if (issues.length) {
     throw new Error(`fe-harness 配置无效：${issues.join('；')}`);
   }

@@ -55,12 +55,40 @@ test('input analysis extracts facts and reports PRD UI conflicts', async () => {
   assert.ok(analysis.issues.some((issue) => issue.code === 'INPUT_FACT_CONFLICT'));
 });
 
-test('design token inspection requires one machine readable source', async () => {
+test('design token inspection reports pending extraction for empty tokens', async () => {
   const cwd = await mkdtemp(resolve(tmpdir(), 'fe-harness-tokens-'));
   await mkdir(resolve(cwd, 'docs/design'), { recursive: true });
   await writeFile(
     resolve(cwd, 'docs/design/tokens.json'),
-    JSON.stringify({ sources: [], tokens: {}, updated_at: '2026-08-04', version: '1.0' }),
+    JSON.stringify({ sources: [], status: 'pending_extraction', tokens: {}, updated_at: '2026-08-04', version: '1.0' }),
+  );
+  const inspection = await inspectDesignTokens(cwd, { facts: { design_tokens: 'docs/design/tokens.json' } });
+  assert.equal(inspection.status, 'needs_confirmation');
+  assert.equal(inspection.source, 'docs/design/tokens.json');
+  assert.ok(inspection.issues.some((issue) => issue.code === 'DESIGN_TOKEN_PENDING_EXTRACTION'));
+});
+
+test('design token inspection passes with extracted token values', async () => {
+  const cwd = await mkdtemp(resolve(tmpdir(), 'fe-harness-extracted-tokens-'));
+  await mkdir(resolve(cwd, 'docs/design'), { recursive: true });
+  await writeFile(
+    resolve(cwd, 'docs/design/tokens.json'),
+    JSON.stringify({
+      sources: [{ id: 'UI-001', path: '.fe-harness/inputs/ui/home.fig', type: 'ui' }],
+      tokens: {
+        color: {
+          brand_primary: {
+            confidence: 'confirmed',
+            source: '高保真 UI',
+            source_input_id: 'UI-001',
+            source_path: '.fe-harness/inputs/ui/home.fig',
+            value: '#0052D9',
+          },
+        },
+      },
+      updated_at: '2026-08-04',
+      version: '1.0',
+    }),
   );
   const inspection = await inspectDesignTokens(cwd, { facts: { design_tokens: 'docs/design/tokens.json' } });
   assert.equal(inspection.status, 'passed');
@@ -113,4 +141,15 @@ test('listen permission failures are reported as environment blocks', async () =
   assert.equal(result.status, 'failed');
   assert.equal(result.results[0].status, 'blocked');
   assert.match(result.results[0].summary, /工具链/);
+});
+
+test('successful commands are not blocked by diagnostic text in their output', async () => {
+  const report = await runVerification({
+    cwd: process.cwd(),
+    failFast: true,
+    mode: 'audit',
+    steps: [{ command: `${process.execPath} -e "console.log('Error: listen EPERM: operation not permitted')"`, name: 'test' }],
+  });
+  assert.equal(report.status, 'passed');
+  assert.equal(report.results[0].status, 'passed');
 });

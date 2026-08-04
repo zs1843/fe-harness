@@ -20,6 +20,23 @@ test('doctor returns stable issue codes and remediation', async () => {
   assert.match(missingScript.suggestion, /build:h5/);
 });
 
+test('doctor recognizes the Node.js test runner and CI entry point', async () => {
+  const cwd = await mkdtemp(resolve(tmpdir(), 'fe-harness-node-test-doctor-'));
+  await mkdir(resolve(cwd, '.github/workflows'), { recursive: true });
+  await writeFile(resolve(cwd, '.github/workflows/verify.yml'), 'name: verify\n');
+  await writeFile(resolve(cwd, 'package.json'), JSON.stringify({
+    engines: { node: '>=20' },
+    scripts: { test: 'node --test tests/*.test.mjs' },
+  }));
+  await writeFile(resolve(cwd, '.gitignore'), 'tmp/\n.env*\n!.env.example\n');
+  const report = await runDoctor(cwd, { commands: { unit_test: 'pnpm test' }, project: { product_type: 'developer_tooling' } });
+  const checks = Object.fromEntries(report.results.map((item) => [item.code, item]));
+  assert.equal(checks.TEST_ISOLATION.status, 'passed');
+  assert.equal(checks.NODE_ENGINE_DECLARATION.status, 'passed');
+  assert.equal(checks.CI_ENTRY_POINT.status, 'passed');
+  assert.equal(checks.VISUAL_BASELINE.status, 'not_applicable');
+});
+
 test('doctor validates a configured consumer H5 OpenAPI snapshot and uni-app structure', async () => {
   const cwd = await mkdtemp(resolve(tmpdir(), 'fe-harness-consumer-doctor-'));
   await mkdir(resolve(cwd, 'src'), { recursive: true });
@@ -96,4 +113,43 @@ test('doctor requires the project Agent workflow for consumer H5', async () => {
   const workflow = report.results.find((item) => item.code === 'AGENT_WORKFLOW');
   assert.equal(workflow.status, 'failed');
   assert.match(workflow.suggestion, /fe-harness plan init/);
+});
+
+test('doctor accepts thin Claude and Cursor adapters to the canonical AGENTS constraints', async () => {
+  const cwd = await mkdtemp(resolve(tmpdir(), 'fe-harness-adapter-doctor-'));
+  await mkdir(resolve(cwd, '.cursor/rules'), { recursive: true });
+  await mkdir(resolve(cwd, '.claude/skills/consumer-h5-harness'), { recursive: true });
+  await writeFile(resolve(cwd, 'package.json'), '{}\n');
+  await writeFile(resolve(cwd, '.gitignore'), 'tmp/\n');
+  await writeFile(resolve(cwd, 'AGENTS.md'), '# 唯一约束本体\n');
+  await writeFile(resolve(cwd, 'CLAUDE.md'), '@AGENTS.md\n');
+  await writeFile(
+    resolve(cwd, '.cursor/rules/fe-harness.mdc'),
+    '---\nalwaysApply: true\n---\n读取 AGENTS.md。\n',
+  );
+  await writeFile(
+    resolve(cwd, '.claude/skills/consumer-h5-harness/SKILL.md'),
+    '---\nname: consumer-h5-harness\ndescription: 测试\n---\n',
+  );
+  const report = await runDoctor(cwd, {
+    facts: { agent_entry: 'AGENTS.md' },
+    project: { product_type: 'consumer_h5' },
+  });
+  const adapters = report.results.find((item) => item.code === 'AGENT_ADAPTERS');
+  assert.equal(adapters.status, 'passed');
+  assert.match(adapters.message, /唯一约束本体/);
+});
+
+test('doctor validates generic UI governance without importing the concrete library', async () => {
+  const cwd = await mkdtemp(resolve(tmpdir(), 'fe-harness-ui-doctor-'));
+  await mkdir(resolve(cwd, '.fe-harness/ui'), { recursive: true });
+  await mkdir(resolve(cwd, '.fe-harness/models'), { recursive: true });
+  await writeFile(resolve(cwd, 'package.json'), '{}\n');
+  await writeFile(resolve(cwd, '.gitignore'), 'tmp/\n.env*\n');
+  await writeFile(resolve(cwd, '.fe-harness/ui/adapter.yaml'), JSON.stringify({ id: 'custom-ui', version: '1.0.0', components: [{}], semantic_mapping: {}, token_mapping: {} }));
+  await writeFile(resolve(cwd, '.fe-harness/ui/adjustments.yaml'), JSON.stringify({ schema: 'ui-adjustments/v1', adjustments: [] }));
+  await writeFile(resolve(cwd, '.fe-harness/models/page-flow.yaml'), JSON.stringify({ schema: 'page-flow-model/v1', nodes: [{ id: 'home', type: 'page', route: '/home', transitions: [] }] }));
+  await writeFile(resolve(cwd, '.fe-harness/models/layout.yaml'), JSON.stringify({ schema: 'layout-spec/v1', pages: [{ id: 'home', route: '/home', layout: { content: 'scroll' }, sections: [{ id: 'main', semantic_component: 'content' }] }] }));
+  const report = await runDoctor(cwd, { project: { product_type: 'consumer_h5' }, ui: { system: { adapter: 'custom-ui', version: '1.0.0', policy: 'preferred' } }, facts: { ui_system_adapter: '.fe-harness/ui/adapter.yaml', page_flow_model: '.fe-harness/models/page-flow.yaml', layout_specs: '.fe-harness/models/layout.yaml', ui_adjustments: '.fe-harness/ui/adjustments.yaml' } });
+  assert.equal(report.results.find((item) => item.code === 'UI_GOVERNANCE').status, 'passed');
 });

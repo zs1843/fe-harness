@@ -39,22 +39,19 @@ fe-harness --version
 ```
 
 `create` generates a real consumer-H5 project with uni-app, Vue 3, Vite, Playwright, project facts,
-automatic Agent instructions, and project-local Skills for every CLI command. It installs project
-dependencies by default; use `--skip-install` for offline scaffolding. `init` connects an existing
-project without overwriting project-owned files. AI agents should use `inspect` and `plan` before
-mutation, then invoke the appropriate verification mode automatically.
+automatic Agent instructions, and the default aggregate Consumer H5 workflow Skill. It installs
+project dependencies by default; use `--skip-install` for offline scaffolding. `init` connects an
+existing project without overwriting project-owned files. AI agents should use `inspect` and `plan`
+before mutation, then invoke the appropriate verification mode automatically.
 
-`fe-harness-create` is the composite workflow Skill. It checks or bootstraps the CLI, asks only for
-missing PRD/RP/UI/API/assets and Design Token authority, creates the project, installs dependencies,
-diagnoses the result, and establishes the first traceable task. The remaining command Skills are
-small enough to invoke independently.
+Command-specific Skills remain available through explicit installation when a task needs them.
 
 `AGENTS.md` is the only project constraint body. Generated `CLAUDE.md` imports it, Cursor receives a
 thin always-applied rule pointing to it, and Codex/Cursor use `.agents/skills` while Claude Code uses
 `.claude/skills`. Install workflows for supported providers with:
 
 ```bash
-fe-harness skills install --project --provider all
+fe-harness skills install --project --provider all --name consumer-h5-harness
 fe-harness skills install --global --provider claude
 fe-harness skills install --global --provider cursor
 ```
@@ -72,6 +69,17 @@ Core
 Core does not contain product pages, domain states, API endpoints, brand values, or design tokens.
 It also does not import a concrete UI library. Optional UI System Adapters map semantic components and
 project-owned semantic tokens to a selected library; see `docs/UI_SYSTEMS.md`.
+
+## Documentation site
+
+A deployable VitePress documentation site lives under `site/fe-harness-docs/`. It explains the
+background, SOP, module design, Agent workflow, verification strategy, and static deployment path.
+
+```bash
+cd site/fe-harness-docs
+pnpm install
+pnpm docs:build
+```
 
 ## Status
 

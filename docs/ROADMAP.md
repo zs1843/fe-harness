@@ -2,6 +2,8 @@
 
 ## Milestone 0.1: H5 foundation
 
+- Keep the default workflow limited to `create/init → inputs → task → verify`; expose Design Token,
+  UI System, OpenAPI, visual baselines, and command-specific Skills only when task evidence requires them.
 - Stabilize configuration, runner, reports, and exit semantics.
 - Complete Doctor checks for Node, package manager, scripts, test isolation, CI entry points, and
   sensitive-file handling.

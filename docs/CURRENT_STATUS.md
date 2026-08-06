@@ -16,7 +16,7 @@ Updated: 2026-08-04
 - Added the initial `uni-app` Stack Adapter.
 - Added a JSON Schema draft for project configuration.
 - Added a minimal business-neutral uni-app H5 fixture.
-- Added the initial Core and orchestration test suite; the current suite contains 51 passing tests.
+- Added the initial Core and orchestration test suite; the current suite contains 56 passing tests.
 - Verified example Doctor and Audit execution.
 - Initialized an independent Git repository on branch `main`.
 - Strengthened runtime validation for supported project, platform, stack, command, and verification
@@ -26,7 +26,7 @@ Updated: 2026-08-04
   states, and write nothing when any conflict exists.
 - Added consumer-H5 product, current-status, decision, changelog, PRD-input, and UI-input templates.
 - Added focused configuration, Doctor, initialization, creation, UI System protocol, and two independent
-  flow-shape fixture tests; 51 tests now pass.
+  flow-shape fixture tests; 56 tests now pass.
 - Added lightweight Doctor checks for Node.js 20, package-manager/lockfile consistency, uni-app page
   registration and dependencies, Harness report ignore rules, and optional OpenAPI JSON snapshots.
 - Added an optional `sources.api` configuration protocol for Apifox-exported OpenAPI snapshots,
@@ -100,6 +100,11 @@ Updated: 2026-08-04
 - Added read-only existing-project Token discovery across Vue/CSS/SCSS/Less sources. Init now requires
   active inventory of CSS variables and recurring visual values before confirming semantic Tokens,
   while preserving existing styles and marking inferred or conflicting candidates explicitly.
+- Reduced the default cognitive footprint without removing capabilities: create/init now install only
+  the aggregate Consumer-H5 workflow Skill for Codex/Cursor and Claude, while command-specific Skills
+  remain available through explicit installation. The CLI default help now presents
+  `create/init → inputs → task → verify`, and Agents load design, API, and decision evidence only for
+  relevant task types.
 
 ## Verified commands
 

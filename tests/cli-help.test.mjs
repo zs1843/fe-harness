@@ -15,20 +15,20 @@ function run(args = []) {
   });
 }
 
-test('prints rich help with no arguments', () => {
+test('prints lightweight default workflow with no arguments', () => {
   const result = run();
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /fe-harness - 前端工程约束、输入管理和验证工具/);
-  assert.match(result.stdout, /常用流程/);
+  assert.match(result.stdout, /默认流程/);
   assert.match(result.stdout, /fe-harness create <项目名> --output <目录>/);
-  assert.match(result.stdout, /命令分组/);
+  assert.match(result.stdout, /基础命令/);
 });
 
 test('prints rich help for -h', () => {
   const result = run(['-h']);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /全局选项/);
-  assert.match(result.stdout, /fe-harness verify visual/);
+  assert.match(result.stdout, /fe-harness verify feature/);
 });
 
 test('prints the same version through command and option aliases', () => {
@@ -61,7 +61,7 @@ test('unknown command exits non-zero and shows main help', () => {
   const result = run(['unknown']);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /未知命令：unknown/);
-  assert.match(result.stdout, /命令分组/);
+  assert.match(result.stdout, /基础命令/);
 });
 
 test('lists command skills as stable JSON', () => {

@@ -21,10 +21,10 @@ fe-harness verify audit
 `create` 默认使用项目声明的 Corepack/pnpm 安装依赖。离线生成时使用
 `fe-harness create my-h5 --skip-install`，之后手动执行 `pnpm install`。
 
-生成项目包含总工作流 Skill 和每个 CLI 命令对应的独立 Skill。`fe-harness-create` 创建前只确认
-项目名、目录和脚手架技术结构；先生成项目和标准输入目录，再引导用户放入 PRD/RP/UI/API/assets，
-随后执行输入登记、Design Token 确认、全页面分析和首次任务初始化。
-独立 Skills 可通过 `fe-harness skills install --project` 安装到项目，或经用户确认后使用
+生成项目默认只包含总工作流 Skill，避免把每个命令 Skill 重复复制到项目。默认工作路径只有
+`create/init → inputs → task → verify`；Design Token、UI System、OpenAPI 和视觉基线仅在对应任务
+需要时启用。独立 Skills 可通过 `fe-harness skills install --project --name <名称>` 按需安装，
+或经用户确认后使用
 `fe-harness skills install --global` 安装到全局 Codex Skills 目录。
 
 项目约束只维护在根目录 `AGENTS.md`。Claude Code 通过 `CLAUDE.md` 导入它；Cursor 会读取

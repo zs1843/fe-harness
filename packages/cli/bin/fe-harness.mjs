@@ -36,6 +36,7 @@ const cwd = process.cwd();
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = resolve(packageDirectory, '../..');
 const packageRoot = existsSync(resolve(repositoryRoot, 'presets')) ? repositoryRoot : packageDirectory;
+const defaultProjectSkills = ['consumer-h5-harness'];
 
 async function copyDirectory(source, target, { force = false } = {}) {
   await mkdir(target, { recursive: true });
@@ -87,27 +88,25 @@ const HELP = {
 用法：
   fe-harness <命令> [参数] [选项]
 
-常用流程：
+默认流程：
   fe-harness create <项目名> --output <目录>  创建 consumer-h5 项目
   fe-harness init --dry-run                  查看接入现有项目会创建哪些文件
-  fe-harness inspect --json                  查看项目配置、输入和 Token 状态
-  fe-harness doctor                          诊断项目约束、命令、输入、历史和视觉基线
-  fe-harness verify quick                    执行快速验证
-  fe-harness verify visual                   执行视觉回归；缺少基线时显示“未配置”
+  fe-harness inputs inspect --json           登记并检查本次任务输入
+  fe-harness task create --title "任务名称"  创建稳定任务编号
+  fe-harness verify feature                  验证完整功能改动
 
-命令分组：
+基础命令：
   create      创建新的 consumer-h5 项目
   init        向现有项目补充 Harness 文件，不覆盖项目已维护内容
-  inspect     查看项目事实、输入清单、Token 和 Agent 工作流
-  plan        输出 init/create 的结构化计划
-  doctor      只读诊断项目配置、输入、历史、Token、脚本和验证能力
-  verify      执行 quick/feature/runtime/interaction/visual/audit
   inputs      查看、比对和分析 PRD/RP/UI/API/assets 输入
-  api         检查 OpenAPI，并按 PRD 任务生成接口类型和请求封装
-  design      查看 Design Token 真值文件
   task        创建任务、查看历史、创建不可变任务快照
+  verify      执行 quick/feature/runtime/interaction/visual/audit
+
+诊断与按需能力：
+  inspect / doctor / plan                    项目检查、诊断和变更预览
+  design / ui                                UI 任务需要时启用
+  api                                        接口任务需要时启用
   skills      列出或安装 fe-harness Skills
-  ui          列出或安装 UI System Adapter
   version     输出 fe-harness 版本
 
 全局选项：
@@ -115,15 +114,8 @@ const HELP = {
   -v, --version  输出 fe-harness 版本
   --json      输出稳定 JSON，适合 Agent 和 CI
 
-更多示例：
-  fe-harness inputs analyze --json
-  fe-harness api inspect --task T001 --json
-  fe-harness api generate --task T001 --dry-run
-  fe-harness design tokens inspect --json
-  fe-harness task create T001 --title "酒店搜索与列表"
-  fe-harness task snapshot T001 --title "酒店搜索与列表" --request "完成列表样式"
-  fe-harness skills install --project --provider all
-  fe-harness skills install --global --provider claude
+按需查看帮助：
+  fe-harness help <命令>
 `,
   create: `fe-harness create - 创建新的 consumer-h5 项目
 
@@ -319,7 +311,11 @@ async function initializationPlan() {
 
 async function skillFiles() {
   const root = resolve(packageRoot, 'skills');
-  return (await listFiles(root)).flatMap((path) => [
+  const paths = [];
+  for (const name of defaultProjectSkills) {
+    paths.push(...(await listFiles(resolve(root, name))).map((path) => `${name}/${path}`));
+  }
+  return paths.flatMap((path) => [
     [`skills/${path}`, `.agents/skills/${path}`],
     [`skills/${path}`, `.claude/skills/${path}`],
   ]);
@@ -342,9 +338,12 @@ async function creationPlan(name) {
   if (!name || !/^[a-z0-9][a-z0-9-]*$/.test(name)) throw new Error('项目名必须使用小写字母、数字和连字符');
   const presetRoot = resolve(packageRoot, 'presets/consumer-h5');
   const files = await listFiles(presetRoot);
-  for (const path of await listFiles(resolve(packageRoot, 'skills'))) {
-    files.push({ source: resolve(packageRoot, 'skills', path), target: `.agents/skills/${path}` });
-    files.push({ source: resolve(packageRoot, 'skills', path), target: `.claude/skills/${path}` });
+  for (const name of defaultProjectSkills) {
+    for (const path of await listFiles(resolve(packageRoot, 'skills', name))) {
+      const skillPath = `${name}/${path}`;
+      files.push({ source: resolve(packageRoot, 'skills', skillPath), target: `.agents/skills/${skillPath}` });
+      files.push({ source: resolve(packageRoot, 'skills', skillPath), target: `.claude/skills/${skillPath}` });
+    }
   }
   return planProjectCreation({ name, output: resolve(option('--output') || resolve(cwd, name)), presetRoot, files });
 }

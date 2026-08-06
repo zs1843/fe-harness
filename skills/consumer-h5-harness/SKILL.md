@@ -18,10 +18,11 @@ and wrappers unchanged; put business mapping in a separate service or repository
 
 1. 读取 `AGENTS.md`。
 2. 读取 `.fe-harness/project.yaml`。
-3. 读取 `docs/PROJECT_MAP.md`、`docs/PRODUCT.md`、`docs/DESIGN.md`、`docs/design/tokens.json`、`docs/CURRENT_STATUS.md` 和 `docs/DECISIONS.md`。
-4. 读取 `.fe-harness/inputs/manifest.yaml`。
-5. 识别本次任务编号；已有有效业务输入但没有编号时运行 `fe-harness task create --title "<任务名称>"` 生成稳定编号。新建项目输入仍为空时保持“等待输入”，不创建虚假业务任务、不实现示例页。
-6. 读取本任务对应 PRD、RP、UI、API 和资产输入。
+3. 读取 `docs/PROJECT_MAP.md` 和 `docs/CURRENT_STATUS.md`。
+4. 识别任务类型，只加载相关证据：业务任务读取输入清单和 PRD/RP；UI 任务再读取设计文档、Token、UI；API 任务再读取 API 输入和 operationId 选择。
+5. 已有有效业务输入但没有编号时运行 `fe-harness task create --title "<任务名称>"`。输入为空时保持“等待输入”，不创建虚假业务任务、不实现示例页。
+
+不要为了遵循 Harness 而无条件读取或维护与本次变更无关的设计、API、视觉、历史文件。
 
 ## 输入优先级
 

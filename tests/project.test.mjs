@@ -8,7 +8,7 @@ import test from 'node:test';
 const repository = resolve(import.meta.dirname, '..');
 const cli = resolve(repository, 'packages/cli/bin/fe-harness.mjs');
 
-test('creates a complete consumer-h5 project with local agent skill', async () => {
+test('creates a consumer-h5 project with one default workflow skill', async () => {
   const parent = await mkdtemp(resolve(tmpdir(), 'fe-harness-create-'));
   const result = spawnSync(process.execPath, [cli, 'create', 'pilot-h5', '--skip-install'], {
     cwd: parent,
@@ -50,22 +50,19 @@ test('creates a complete consumer-h5 project with local agent skill', async () =
     await readFile(resolve(project, '.agents/skills/consumer-h5-harness/SKILL.md'), 'utf8'),
     /页面与模块生成规则/,
   );
-  assert.match(
-    await readFile(resolve(project, '.agents/skills/fe-harness-create/SKILL.md'), 'utf8'),
-    /不在空目录阶段要求用户提供 PRD、RP、UI、API 或资产/,
-  );
+  await assert.rejects(readFile(resolve(project, '.agents/skills/fe-harness-create/SKILL.md')), /ENOENT/);
   assert.match(await readFile(resolve(project, 'CLAUDE.md'), 'utf8'), /@AGENTS\.md/);
   assert.match(
     await readFile(resolve(project, '.cursor/rules/fe-harness.mdc'), 'utf8'),
     /alwaysApply: true/,
   );
   assert.match(
-    await readFile(resolve(project, '.claude/skills/fe-harness-create/SKILL.md'), 'utf8'),
-    /创建问答/,
+    await readFile(resolve(project, '.claude/skills/consumer-h5-harness/SKILL.md'), 'utf8'),
+    /Consumer H5 Harness/,
   );
   assert.match(await readFile(resolve(project, 'src/services/http.ts'), 'utf8'), /export function request/);
   assert.match(await readFile(resolve(project, '.fe-harness/api/selection.yaml'), 'utf8'), /tasks: \{\}/);
-  assert.match(await readFile(resolve(project, '.agents/skills/fe-harness-api/SKILL.md'), 'utf8'), /OpenAPI/);
+  await assert.rejects(readFile(resolve(project, '.agents/skills/fe-harness-api/SKILL.md')), /ENOENT/);
   assert.match(await readFile(resolve(project, '.eslintrc.cjs'), 'utf8'), /vue-eslint-parser/);
   assert.match(await readFile(resolve(project, 'package.json'), 'utf8'), /"test:coverage"/);
   assert.match(await readFile(resolve(project, 'tests/coverage-closure.mjs'), 'utf8'), /尚未收口/);

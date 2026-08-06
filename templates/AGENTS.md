@@ -7,9 +7,12 @@
 ## 读取顺序
 
 1. 读取 `.fe-harness/project.yaml`。
-2. 读取 `docs/PROJECT_MAP.md`、`docs/PRODUCT.md`、`docs/DESIGN.md`、`docs/CURRENT_STATUS.md` 和 `docs/DECISIONS.md`。
-3. 读取 `.fe-harness/inputs/manifest.yaml`，再按本次任务读取对应 PRD、RP、UI、API 和资产输入。
-4. 使用项目 Skill：`.agents/skills/consumer-h5-harness/SKILL.md`。
+2. 读取 `docs/PROJECT_MAP.md` 和 `docs/CURRENT_STATUS.md`。
+3. 使用项目 Skill：`.agents/skills/consumer-h5-harness/SKILL.md`。
+4. 有业务任务时再读取 `.fe-harness/inputs/manifest.yaml`、`docs/PRODUCT.md` 和对应 PRD/RP。
+5. 有 UI 任务时再读取 `docs/DESIGN.md`、Design Token、UI 输入和视觉调整记录。
+6. 有 API 任务时再读取 API 输入和任务 operationId 选择。
+7. 只有发生长期约束冲突或架构决策时才读取 `docs/DECISIONS.md`。
 
 接口任务按 PRD 选择 operationId，并以登记的 OpenAPI JSON 为字段契约。先运行
 `fe-harness api inspect --task <任务号>` 和 `fe-harness api generate --task <任务号> --dry-run`。

@@ -1,7 +1,8 @@
 {
-  "name": "@company/fe-harness-core",
+  "name": "@anthropic/fe-harness-core",
   "version": "0.1.0",
   "private": false,
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -12,5 +13,10 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthropics/fe-harness.git",
+    "directory": "packages/core"
   }
 }

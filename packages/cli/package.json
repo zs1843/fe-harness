@@ -1,7 +1,8 @@
 {
-  "name": "@company/fe-harness",
+  "name": "@anthropic/fe-harness",
   "version": "0.1.0",
   "private": false,
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -21,10 +22,15 @@
     "prepack": "node scripts/prepare-package.mjs"
   },
   "dependencies": {
-    "@company/fe-harness-core": "workspace:*",
+    "@anthropic/fe-harness-core": "workspace:*",
     "yaml": "^2.8.1"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthropics/fe-harness.git",
+    "directory": "packages/cli"
   }
 }

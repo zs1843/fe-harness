@@ -14,7 +14,7 @@ description: Create a new uni-app Consumer H5 project through the complete fe-ha
 ## 工作流
 
 1. 检查 Node.js 20、Corepack、包管理器和 `fe-harness version`。
-2. 如果找不到 CLI，说明将执行的安装命令并请求授权；获准后执行 `npm install --global @company/fe-harness`，再验证 `fe-harness version`。registry 尚未发布该包时停止并给出中文原因，不使用来源不明的替代包。
+2. 如果找不到 CLI，说明将执行的安装命令并请求授权；获准后执行 `npm install --global @anthropic/fe-harness`，再验证 `fe-harness version`。registry 尚未发布该包时停止并给出中文原因，不使用来源不明的替代包。
 3. 创建前只询问或从上下文确定项目名、完整目标目录，以及确实影响脚手架结构的 Profile、Platform、Stack；目录存在时先执行 `fe-harness plan create <name> --output <dir> --json`，有冲突则停止。
 4. 不在空目录阶段要求用户提供 PRD、RP、UI、API 或资产，也不因这些输入缺失而阻止创建。执行 `fe-harness create <name> --output <dir>`；默认由 CLI 安装依赖，离线或需要稍后安装时使用 `--skip-install`。
 5. 创建完成后明确展示 `.fe-harness/inputs/prd/`、`rp/`、`ui/`、`api/`、`assets/` 的完整路径，并暂停输入分析，等待用户把原始文件放入项目。用户直接上传截图时，项目已存在后再将其登记为 UI 输入证据。

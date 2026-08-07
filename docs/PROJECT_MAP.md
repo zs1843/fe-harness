@@ -41,10 +41,10 @@ Core must not import a Profile, Platform Adapter, Stack Adapter, example, or tar
 
 ## Current packages
 
-- `@company/fe-harness-core`: private workspace package containing the initial runtime.
-- `@company/fe-harness`: private CLI package exposing the `fe-harness` executable.
+- `@anthropic/fe-harness-core`: private workspace package containing the initial runtime.
+- `@anthropic/fe-harness`: private CLI package exposing the `fe-harness` executable.
 
-两个包均已具备 pack 元数据，但尚未发布；`@company` 仍是待确定的 registry scope。
+Both packages have pack metadata ready but are not yet published to a registry.
 
 ## Runtime requirements
 

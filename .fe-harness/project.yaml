@@ -1,5 +1,5 @@
 harness:
-  package: "@company/fe-harness"
+  package: "@anthropic/fe-harness"
   version: "0.1.0"
 
 project:

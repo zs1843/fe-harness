@@ -84,6 +84,5 @@ pnpm docs:build
 ## Status
 
 This repository is an initial `0.1.0` implementation. Core and CLI packages can be packed for
-registry verification, but the placeholder `@company` scope must be replaced or configured before
-publishing. Publishing, upgrades, API contract adapters, and additional project profiles remain
-explicit release decisions.
+registry verification, but the package scope must be configured before publishing. Publishing,
+upgrades, API contract adapters, and additional project profiles remain explicit release decisions.

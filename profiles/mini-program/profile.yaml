@@ -1,0 +1,11 @@
+id: mini-program
+version: "0.1.0"
+checks:
+  - page_route_stack
+  - tabbar_navigation
+  - authorization_scope
+  - loading_empty_error_states
+  - pull_to_refresh
+  - network_error_recovery
+  - subpackage_loading
+  - share_and_scene

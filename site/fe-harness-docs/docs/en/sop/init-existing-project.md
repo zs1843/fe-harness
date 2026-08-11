@@ -8,8 +8,15 @@ When connecting an existing project, the primary principle is safety: do not ove
 fe-harness init --dry-run
 fe-harness plan init --json
 fe-harness init
+fe-harness hosts install
+fe-harness inspect --map
 fe-harness doctor
+fe-harness audit
+fe-harness validate
+fe-harness optimize --dry-run
 ```
+
+`init` automatically runs idempotency verification after writing. `hosts install` uses managed blocks with stable IDs to install multi-host thin entrypoints (codex/opencode/claude/cursor/trae) without overwriting existing content.
 
 ## Pre-check Status
 

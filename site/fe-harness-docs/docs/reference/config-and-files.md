@@ -48,3 +48,29 @@ src/services/api.generated.ts
 ```
 
 这些文件受 managed metadata 保护。
+
+## 规则目录
+
+```text
+.fe-harness/rules/
+```
+
+存放 Harness 管理的规则文件，由 `optimize --groups rules` 和 `validate` 检查维护。规则文件覆盖工程规范、验证要求、模块边界等约束。该目录下的文件受 managed metadata 保护，幂等升级时只更新有差异的文件。
+
+## 代码图谱目录
+
+```text
+.fe-harness/codebase/
+```
+
+由 `inspect --map` 生成，包含 5 份代码图谱：
+
+| 文件 | 内容 |
+| --- | --- |
+| `STACK.md` | 技术栈和依赖 |
+| `STRUCTURE.md` | 模块和目录结构 |
+| `CONVENTIONS.md` | 代码约定和规范 |
+| `TESTING.md` | 测试策略和覆盖 |
+| `CONCERNS.md` | 关注点和风险 |
+
+该目录被 Git 忽略。图谱可以重新生成，不作为受管文件保护。

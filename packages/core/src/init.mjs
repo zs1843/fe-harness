@@ -46,3 +46,14 @@ export async function applyInitialization({ cwd, files, plan, templateRoot }) {
     await writeFile(resolve(cwd, entry.target), content, { encoding: 'utf8', flag: 'wx' });
   }
 }
+
+export async function verifyInitializationIdempotent({ cwd, files, templateRoot }) {
+  const secondPlan = await planInitialization({ cwd, files, templateRoot });
+  const drift = secondPlan.entries
+    .filter((entry) => entry.status === 'create')
+    .map((entry) => entry.target);
+  return {
+    idempotent: drift.length === 0,
+    drift,
+  };
+}

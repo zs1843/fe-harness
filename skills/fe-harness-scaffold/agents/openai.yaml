@@ -1,0 +1,4 @@
+interface:
+  display_name: "fe-harness Scaffold"
+  short_description: "级联多轮问答创建前端项目 + 叠加 Harness"
+  default_prompt: "使用 $fe-harness-scaffold 引导用户新建项目"

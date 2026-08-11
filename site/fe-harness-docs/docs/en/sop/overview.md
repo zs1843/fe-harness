@@ -9,25 +9,39 @@ fe-harness defines clear SOPs for different scenarios:
 ### 1. New Project
 
 ```bash
-fe-harness create my-h5
+fe-harness scaffold my-h5 --profile consumer-h5 --stack uni-app
+fe-harness hosts install
+fe-harness inspect --map
 ```
 
-Creates a complete consumer H5 project with:
+Creates a complete project with:
 - uni-app + Vue 3 + Vite
 - Playwright tests
 - Project facts
 - Agent workflows
+- Multi-host thin entrypoints (codex/opencode/claude/cursor/trae)
+
+Without `--profile`, enters interactive mode to confirm product type, tech framework, UI component library, and Agent host round by round.
 
 ### 2. Existing Project
 
 ```bash
+fe-harness init --dry-run
 fe-harness init
+fe-harness hosts install
+fe-harness inspect --map
+fe-harness doctor
+fe-harness audit
+fe-harness validate
+fe-harness optimize --dry-run
 ```
 
 Connects fe-harness to an existing project without overwriting:
 - Project-owned files
 - Existing configuration
 - Team workflows
+
+init includes idempotency verification; hosts install uses managed blocks with stable IDs.
 
 ### 3. Daily Development
 

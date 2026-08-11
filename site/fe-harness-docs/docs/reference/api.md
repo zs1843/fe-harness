@@ -7,7 +7,7 @@
 | 命令 | 作用 | 是否写文件 |
 |------|------|-----------|
 | `version` | 输出 CLI 版本 | 否 |
-| `create` | 创建新项目 | 是 |
+| `scaffold` | 委托框架 CLI 创建项目 + 叠加 Harness | 是 |
 | `init` | 接入已有项目 | 是 |
 | `plan` | 输出结构化计划 | 否 |
 | `inspect` | 查看项目事实 | 否 |
@@ -19,6 +19,9 @@
 | `design` | Design Token 操作 | inspect 只读 |
 | `ui` | UI System 管理 | install 写 |
 | `skills` | 安装 Skills | install 写 |
+| `optimize` | 幂等升级既有 Harness | 是，仅写选定组 |
+| `validate` | 验证 Harness 完整性 | 否 |
+| `hosts` | 管理多宿主薄入口 | install 写 |
 
 ---
 
@@ -46,43 +49,80 @@ fe-harness v1.2.4
 
 ---
 
-## create
+## scaffold
 
-创建新的 Consumer H5 项目。
+委托框架 CLI 创建项目，再叠加 Harness：级联选项 + 骨架注入 + 路由拆分。
 
 ### 用法
 
 ```bash
-fe-harness create <项目名> [选项]
+fe-harness scaffold <项目名> [选项]
 ```
 
 ### 参数
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `<项目名>` | string | - | 项目名称 |
-| `--output` | string | `.` | 输出目录 |
-| `--dry-run` | boolean | false | 预览创建内容，不写文件 |
+| `<项目名>` | string | - | 项目名称（小写字母、数字、连字符） |
+| `--profile` | string | 无（进入交互模式） | consumer-h5 / admin-web / mini-program |
+| `--stack` | string | profile 第一个可用 | uni-app / vue3-vite / react-vite / taro / next.js |
+| `--ui` | string | null | UI 组件库适配器 |
+| `--hosts` | string | codex | 宿主列表，逗号分隔 |
+| `--with-routes` | boolean | false | 根据 PRD 做路由拆分 |
+| `--prd` | string | null | PRD 文件路径 |
 | `--skip-install` | boolean | false | 跳过依赖安装 |
-| `--json` | boolean | false | 以 JSON 格式输出 |
+| `--skip-framework-cli` | boolean | false | 跳过框架 CLI（已有项目） |
+| `--dry-run` | boolean | false | 预览步骤 |
+| `--json` | boolean | false | JSON 输出 |
+
+### 执行步骤
+
+1. 验证级联兼容性
+2. 委托框架 CLI 创建项目
+3. fe-harness init（补 Harness 文件 + 幂等验证）
+4. fe-harness hosts install（多宿主薄入口）
+5. fe-harness ui systems install（UI 适配器，可选）
+6. 注入工程骨架（目录边界 + ESLint/Prettier + 测试基础设施）
+7. 路由拆分（有 PRD 时）
+8. 写入 project.yaml
+9. 安装依赖
+
+### 级联矩阵
+
+Profile → Stack → UI System → 框架选项。上层选项决定下层可选项，不兼容组合在步骤 1 即被拒绝。
+
+| Profile | 可用 Stack | 可用 UI System |
+|---------|-----------|----------------|
+| consumer-h5 | uni-app / vue3-vite / react-vite | tdesign-uniapp / vant / nutui |
+| admin-web | vue3-vite / react-vite / next.js | tdesign / antd / element-plus |
+| mini-program | uni-app / taro | tdesign-uniapp / nutui |
 
 ### 示例
 
 ```bash
-# 创建项目（交互式）
-fe-harness create my-h5
+# 交互式创建 Consumer H5 项目
+fe-harness scaffold my-h5 --profile consumer-h5
 
-# 指定输出目录
-fe-harness create my-h5 --output ./projects
+# 指定 stack 和 UI
+fe-harness scaffold my-admin --profile admin-web --stack vue3-vite --ui tdesign
 
-# 预览创建内容
-fe-harness create my-h5 --dry-run
+# 小程序项目
+fe-harness scaffold my-mp --profile mini-program --stack taro
+
+# 已有项目，跳过框架 CLI
+fe-harness scaffold my-existing --profile consumer-h5 --skip-framework-cli
+
+# 根据 PRD 做路由拆分
+fe-harness scaffold my-h5 --profile consumer-h5 --with-routes --prd ./prd.md
+
+# 预览步骤
+fe-harness scaffold my-h5 --profile consumer-h5 --dry-run
 
 # 跳过依赖安装
-fe-harness create my-h5 --skip-install
+fe-harness scaffold my-h5 --profile consumer-h5 --skip-install
 
 # JSON 输出
-fe-harness create my-h5 --json
+fe-harness scaffold my-h5 --profile consumer-h5 --json
 ```
 
 ### 输出示例
@@ -91,22 +131,34 @@ fe-harness create my-h5 --json
 {
   "status": "success",
   "projectName": "my-h5",
-  "outputPath": "./my-h5",
+  "profile": "consumer-h5",
+  "stack": "uni-app",
+  "ui": null,
+  "steps": [
+    "cascade-validate",
+    "framework-cli",
+    "init",
+    "hosts-install",
+    "skeleton-inject"
+  ],
   "files": [
     "package.json",
     "src/main.js",
-    "src/pages/index/index.vue"
+    "src/pages/index/index.vue",
+    ".fe-harness/project.yaml",
+    "AGENTS.md"
   ]
 }
 ```
 
-### 创建的内容
+### 生成的内容
 
-- 项目配置文件（package.json, vite.config.js）
-- 源码目录结构
-- 测试配置
-- Agent 工作流文件
-- 默认 Skill
+- 框架 CLI 创建的项目结构
+- `.fe-harness/` 配置目录和 project.yaml
+- AGENTS.md 约束文件
+- 工程骨架（ESLint/Prettier、测试基础设施、目录边界）
+- 多宿主薄入口
+- UI System Adapter（指定 `--ui` 时）
 
 ---
 
@@ -151,18 +203,18 @@ fe-harness init --json
 
 ## plan
 
-输出 create/init 的结构化计划，用于预览。
+输出 scaffold/init 的结构化计划，用于预览。
 
 ### 用法
 
 ```bash
-fe-harness plan <create|init> [选项]
+fe-harness plan <scaffold|init> [选项]
 ```
 
 ### 示例
 
 ```bash
-fe-harness plan create my-h5 --json
+fe-harness plan scaffold my-h5 --json
 fe-harness plan init --json
 ```
 
@@ -170,7 +222,7 @@ fe-harness plan init --json
 
 ```json
 {
-  "operation": "create",
+  "operation": "scaffold",
   "projectName": "my-h5",
   "files": [
     {
@@ -233,13 +285,6 @@ fe-harness doctor [选项]
 |------|------|--------|------|
 | `--json` | boolean | false | 以 JSON 格式输出 |
 
-### 示例
-
-```bash
-fe-harness doctor
-fe-harness doctor --json
-```
-
 ### 检查项
 
 - 配置文件完整性
@@ -247,6 +292,255 @@ fe-harness doctor --json
 - 输入文件状态
 - Token 配置
 - Agent readiness
+- 敏感路径检测（.env、私钥等，只枚举不读取）
+
+---
+
+## audit
+
+八维成熟度审计，借鉴 ai-harness-init 的审计模式。
+
+### 用法
+
+```bash
+fe-harness audit [选项]
+```
+
+### 八个维度
+
+| 维度 | 检查内容 |
+|------|----------|
+| `reproducibility` | Node 版本、包管理器、锁文件一致 |
+| `commands` | build/test/lint/type-check 脚本配置 |
+| `code_quality` | ESLint、Prettier、TS 配置、模块边界 |
+| `testing` | 单测/E2E/视觉测试、覆盖闭环 |
+| `architecture` | profile/platform/stack 一致性、模块边界 |
+| `inputs` | PRD/RP/UI/API/assets 登记状态 |
+| `agent_ecosystem` | AGENTS.md、Skills、Agent 适配器 |
+| `design_governance` | Design Token、UI System、视觉基线 |
+
+### 评分规则
+
+| 状态 | 得分 |
+|------|------|
+| `passed` | 100 |
+| `warning` | 60 |
+| `failed` | 0 |
+| `manual` | 不计分 |
+
+### 等级
+
+| 等级 | 分数范围 |
+|------|----------|
+| A | ≥ 90 |
+| B | 80-89 |
+| C | 70-79 |
+| D | 60-69 |
+| E | 50-59 |
+| F | < 50 |
+
+### 输出
+
+- 每维度得分和等级
+- 总分和总等级
+- P0-P2 改进清单（P0=命令/安全失败，P1=其他失败，P2=警告）
+- Markdown 报告写入 `tmp/fe-harness/audit-report.md`
+
+### 示例
+
+```bash
+fe-harness audit
+fe-harness audit --json
+```
+
+---
+
+## optimize
+
+幂等升级既有 Harness，按组对齐到最新 Harness 规范。
+
+### 用法
+
+```bash
+fe-harness optimize [选项]
+```
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--dry-run` | boolean | false | 列出精确差异，不写文件 |
+| `--groups` | string | - | 指定执行的组，逗号分隔 |
+| `--json` | boolean | false | 以 JSON 格式输出 |
+
+### 五个组
+
+| 组 | 内容 |
+|------|------|
+| `docs` | AGENTS.md、docs/ 下的事实文件 |
+| `rules` | `.fe-harness/rules/` 下的规则文件 |
+| `adapters` | 宿主适配器和薄入口 |
+| `engineering` | 工程配置（lint、tsconfig、scripts 等） |
+| `tools` | Agent 工具链和 Skills |
+
+### 行为说明
+
+- 读取现有 Harness 和工程配置，按五组列出精确差异。
+- `--dry-run` 只列出差异不写文件。
+- 不指定 `--groups` 时，交互式让用户选择组。
+- 指定 `--groups` 时，只执行选定的组。
+- 执行后做二次 dry comparison 验证幂等：如果二次比较仍有差异会报告。
+
+### 示例
+
+```bash
+# 预览所有组的差异
+fe-harness optimize --dry-run
+
+# 只执行 docs 和 rules 组
+fe-harness optimize --groups docs,rules
+
+# 执行全部五组
+fe-harness optimize --groups docs,rules,adapters,engineering,tools
+
+# JSON 输出
+fe-harness optimize --dry-run --json
+```
+
+### 输出示例
+
+```json
+{
+  "status": "success",
+  "groups": {
+    "docs": { "diffs": 3, "applied": true },
+    "rules": { "diffs": 1, "applied": true },
+    "adapters": { "diffs": 0, "applied": false },
+    "engineering": { "diffs": 2, "applied": true },
+    "tools": { "diffs": 0, "applied": false }
+  },
+  "idempotent": true
+}
+```
+
+---
+
+## validate
+
+验证 Harness 完整性，检查受管块、规则、适配器和链接一致性。
+
+### 用法
+
+```bash
+fe-harness validate [选项]
+```
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--json` | boolean | false | 以 JSON 格式输出 |
+
+### 检查项
+
+| 检查 | 说明 |
+|------|------|
+| 受管块匹配 | 验证所有 managed block 标记完整且内容与源一致 |
+| 规则完整性 | 检查 `.fe-harness/rules/` 下规则文件是否完整、无遗漏 |
+| 宿主适配器 | 验证已安装宿主适配器的入口和受管块是否正常 |
+| Markdown 链接 | 扫描文档中的链接是否指向有效路径 |
+| 禁止路径 | 检查是否存在不应纳入 Harness 的禁止路径 |
+
+### 示例
+
+```bash
+fe-harness validate
+fe-harness validate --json
+```
+
+### 输出示例
+
+```json
+{
+  "status": "passed",
+  "checks": {
+    "managed_blocks": "passed",
+    "rules": "passed",
+    "host_adapters": "passed",
+    "markdown_links": "warning",
+    "forbidden_paths": "passed"
+  },
+  "warnings": [
+    "docs/PROJECT_MAP.md: broken link to docs/ARCHITECTURE.md"
+  ]
+}
+```
+
+---
+
+## hosts
+
+管理多宿主薄入口，为不同 Agent 宿主安装入口文件。
+
+### 子命令
+
+- `list`: 列出支持的宿主和已安装状态
+- `install`: 为指定宿主安装薄入口
+
+### 用法
+
+```bash
+fe-harness hosts list [选项]
+fe-harness hosts install [选项]
+```
+
+### 支持的宿主
+
+| 宿主 | 说明 |
+|------|------|
+| `codex` | Codex 入口 |
+| `opencode` | OpenCode 入口 |
+| `claude` | Claude Code 入口 |
+| `cursor` | Cursor 入口 |
+| `trae` | Trae 入口 |
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--host` | string | - | 指定宿主名称 |
+| `--json` | boolean | false | 以 JSON 格式输出 |
+
+### 行为说明
+
+- 用受管块和稳定 ID 安装入口文件。
+- 不覆盖已有内容，只插入受管块。
+- 未指定 `--host` 时，交互式选择。
+
+### 示例
+
+```bash
+# 列出支持的宿主和安装状态
+fe-harness hosts list --json
+
+# 安装 Claude Code 入口
+fe-harness hosts install --host claude
+
+# 安装 Codex 入口
+fe-harness hosts install --host codex --json
+```
+
+### 输出示例
+
+```json
+{
+  "status": "success",
+  "host": "claude",
+  "installed": true,
+  "entry": ".claude/CLAUDE.md",
+  "managedBlocks": 3
+}
+```
 
 ---
 

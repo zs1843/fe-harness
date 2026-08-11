@@ -1,0 +1,17 @@
+id: taro
+version: "0.1.0"
+detection:
+  files:
+    - config/index.ts
+    - config/index.js
+  dependencies:
+    - "@tarojs/taro"
+defaults:
+  source_dir: src
+  app_config: src/app.config.ts
+  page_registry: src/app.config.ts
+checks:
+  - taro_build_command
+  - taro_page_registry_integrity
+  - taro_request_mocking
+  - vitest_playwright_isolation

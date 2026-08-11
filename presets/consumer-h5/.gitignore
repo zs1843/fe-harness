@@ -1,8 +1,0 @@
-node_modules/
-dist/
-tmp/
-playwright-report/
-test-results/
-*.log
-.env*
-!.env.example

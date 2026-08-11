@@ -9,34 +9,54 @@ import { fileURLToPath } from 'node:url';
 import {
   applyInitialization,
   applyOpenApiGeneration,
-  applyProjectCreation,
   analyzeInputs,
+  AUTHORIZATION_GROUPS,
   createTaskSnapshot,
   discoverDesignTokenCandidates,
+  formatAuditMarkdown,
+  generateCodebaseMaps,
+  getGroupKeys,
+  HOST_ADAPTERS,
+  getSupportedHosts,
+  detectHosts,
+  installThinEntry,
+  installAllThinEntries,
   inspectDesignTokens,
   inspectInputs,
   inspectUiGovernance,
   inspectTaskHistory,
+  listRules,
   loadProjectConfig,
   listOpenApiOperations,
   planInitialization,
   planOpenApiGeneration,
-  planProjectCreation,
-  publicPlan,
   resolveVerifySteps,
+  runAudit,
   runDoctor,
+  runOptimize,
+  applyOptimize,
+  runScaffold,
+  validateScaffoldConfig,
+  getAvailableStacks,
+  getAvailableUiSystems,
+  getStackOptions,
+  getDefaultOptions,
+  buildFrameworkCommand,
+  interactiveScaffold,
   runShellCommand,
   runVerification,
   readInputManifest,
+  validateGroupSelection,
+  validateHarness,
+  verifyInitializationIdempotent,
   writeReport,
-} from '@company/fe-harness-core';
+} from '@anthropic/fe-harness-core';
 import YAML from 'yaml';
 
 const cwd = process.cwd();
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = resolve(packageDirectory, '../..');
 const packageRoot = existsSync(resolve(repositoryRoot, 'presets')) ? repositoryRoot : packageDirectory;
-const defaultProjectSkills = ['consumer-h5-harness'];
 
 async function copyDirectory(source, target, { force = false } = {}) {
   await mkdir(target, { recursive: true });
@@ -89,21 +109,22 @@ const HELP = {
   fe-harness <命令> [参数] [选项]
 
 默认流程：
-  fe-harness create <项目名> --output <目录>  创建 consumer-h5 项目
+  fe-harness scaffold <项目名> --profile <p> --stack <s>  创建项目 + 叠加 Harness
   fe-harness init --dry-run                  查看接入现有项目会创建哪些文件
   fe-harness inputs inspect --json           登记并检查本次任务输入
   fe-harness task create --title "任务名称"  创建稳定任务编号
   fe-harness verify feature                  验证完整功能改动
 
 基础命令：
-  create      创建新的 consumer-h5 项目
+  scaffold    委托框架 CLI 创建项目 + 叠加 Harness（交互式级联选项）
   init        向现有项目补充 Harness 文件，不覆盖项目已维护内容
   inputs      查看、比对和分析 PRD/RP/UI/API/assets 输入
   task        创建任务、查看历史、创建不可变任务快照
   verify      执行 quick/feature/runtime/interaction/visual/audit
 
 诊断与按需能力：
-  inspect / doctor / plan                    项目检查、诊断和变更预览
+  inspect / doctor / audit / optimize / validate / plan  检查、诊断、审计、升级、验证和预览
+  hosts       管理多宿主薄入口（codex/opencode/claude/cursor/trae）
   design / ui                                UI 任务需要时启用
   api                                        接口任务需要时启用
   skills      列出或安装 fe-harness Skills
@@ -117,22 +138,40 @@ const HELP = {
 按需查看帮助：
   fe-harness help <命令>
 `,
-  create: `fe-harness create - 创建新的 consumer-h5 项目
+  scaffold: `fe-harness scaffold - 委托框架 CLI 创建项目 + 叠加 Harness
 
 用法：
-  fe-harness create <项目名> [--output <目录>] [--dry-run] [--skip-install] [--json]
+  fe-harness scaffold <项目名> [选项]
 
 说明：
-  项目名只能使用小写字母、数字和连字符。
-  默认输出到当前目录下的同名子目录。
-  create 会生成中文 AGENTS、输入目录、历史目录、Token 文件、uni-app H5 最小工程和测试基础设施，并默认安装依赖。
-  create 不要求提前提供 PRD/RP/UI；项目创建后会输出标准输入目录，再进入输入登记和任务分析阶段。
-  离线创建或暂不安装依赖时使用 --skip-install。
+  根据级联选项矩阵，委托对应框架的 CLI（create-vue / create-vite / taro init 等）创建项目，
+  然后叠加 fe-harness：init 补 Harness 文件、hosts 装多宿主薄入口、ui systems 装组件库适配器、写入 project.yaml。
+  默认模板后续放入；当前只做框架 + Harness 生成。
+
+级联选项：
+  Profile → Stack → UI System → 框架选项（TypeScript/Router/Pinia 等）
+
+  consumer-h5:  uni-app / vue3-vite / taro / react-vite
+  admin-web:    vue3-vite / react-vite
+  mini-program: uni-app / taro
+
+参数：
+  --profile <p>      consumer-h5 / admin-web / mini-program
+  --stack <s>        uni-app / vue3-vite / react-vite / taro / next.js
+  --ui <u>           element-plus / ant-design-vue / tdesign-uniapp / ...
+  --hosts <h,h>      codex / opencode / claude / cursor / trae
+  --with-routes      根据 PRD 做路由拆分（需配合 --prd）
+  --prd <path>       PRD 文件路径，配合 --with-routes 使用
+  --skip-install     跳过依赖安装
+  --skip-framework-cli  跳过框架 CLI，只叠加 Harness（已有项目时）
+  --dry-run          预览步骤，不执行
+  --json             JSON 输出
 
 示例：
-  fe-harness create hotel-h5
-  fe-harness create hotel-h5 --output /tmp/hotel-h5
-  fe-harness create hotel-h5 --dry-run --json
+  fe-harness scaffold my-admin --profile admin-web --stack vue3-vite --ui element-plus
+  fe-harness scaffold my-h5 --profile consumer-h5 --stack uni-app --hosts codex,claude
+  fe-harness scaffold my-admin --with-routes --prd ./prd.md --profile admin-web --stack vue3-vite
+  fe-harness scaffold my-admin --dry-run --json
 `,
   init: `fe-harness init - 接入现有项目
 
@@ -151,9 +190,50 @@ const HELP = {
 
 用法：
   fe-harness inspect [--json]
+  fe-harness inspect --map [--json]
 
 输出：
   project.yaml 路径、项目类型、技术栈、事实文档存在性、verify 模式、输入清单、Design Token 和 Agent 工作流。
+  --map：生成 .fe-harness/codebase/ 下 5 份代码图谱（STACK/STRUCTURE/CONVENTIONS/TESTING/CONCERNS）。
+`,
+  audit: `fe-harness audit - 八维成熟度审计
+
+用法：
+  fe-harness audit [--json]
+
+说明：
+  从可复现性、命令配置、代码质量、测试覆盖、架构一致性、输入证据、Agent 生态、设计治理
+  八个维度评分，输出 A-F 等级和 P0-P2 改进清单。报告写入 tmp/fe-harness/audit-report.md。
+`,
+  optimize: `fe-harness optimize - 幂等升级既有 Harness
+
+用法：
+  fe-harness optimize [--dry-run] [--groups docs,rules,adapters,engineering,tools] [--json]
+
+说明：
+  读取现有 Harness 和工程配置，按五组（文档/规则/适配器/工程配置/工具）列出精确差异。
+  只执行用户选择的组；冲突项回到提案阶段。二次 dry comparison 验证幂等。
+`,
+  validate: `fe-harness validate - 验证 Harness 完整性
+
+用法：
+  fe-harness validate [--json]
+
+说明：
+  检查受管块匹配、规则完整性、宿主适配器、Markdown 链接、禁止路径。
+`,
+  hosts: `fe-harness hosts - 管理多宿主薄入口
+
+用法：
+  fe-harness hosts list [--json]
+  fe-harness hosts install [--host <宿主>] [--json]
+
+支持的宿主：
+  codex / opencode / claude / cursor / trae
+
+说明：
+  list 列出所有宿主及检测状态。
+  install 安装薄入口（受管块，不覆盖已有内容）。
 `,
   plan: `fe-harness plan - 输出结构化计划
 
@@ -331,51 +411,118 @@ async function init() {
   else printPlan(plan);
   if (has('--dry-run')) return;
   if (plan.status === 'conflict') throw new Error('初始化存在文件冲突，未写入任何文件');
-  await applyInitialization({ cwd, files: await initializationFiles(), plan, templateRoot: packageRoot });
-}
-
-async function creationPlan(name) {
-  if (!name || !/^[a-z0-9][a-z0-9-]*$/.test(name)) throw new Error('项目名必须使用小写字母、数字和连字符');
-  const presetRoot = resolve(packageRoot, 'presets/consumer-h5');
-  const files = await listFiles(presetRoot);
-  for (const name of defaultProjectSkills) {
-    for (const path of await listFiles(resolve(packageRoot, 'skills', name))) {
-      const skillPath = `${name}/${path}`;
-      files.push({ source: resolve(packageRoot, 'skills', skillPath), target: `.agents/skills/${skillPath}` });
-      files.push({ source: resolve(packageRoot, 'skills', skillPath), target: `.claude/skills/${skillPath}` });
+  const files = await initializationFiles();
+  await applyInitialization({ cwd, files, plan, templateRoot: packageRoot });
+  if (!has('--no-verify-idempotent')) {
+    const verification = await verifyInitializationIdempotent({ cwd, files, templateRoot: packageRoot });
+    if (has('--json')) console.log(JSON.stringify({ idempotent: verification }, null, 2));
+    else if (!verification.idempotent) {
+      console.log(`幂等验证发现漂移：${verification.drift.join(', ')}`);
+    } else {
+      console.log('幂等验证通过：二次执行无变更');
     }
   }
-  return planProjectCreation({ name, output: resolve(option('--output') || resolve(cwd, name)), presetRoot, files });
 }
 
-async function create(name) {
-  const plan = await creationPlan(name);
-  if (has('--json') || has('--dry-run')) console.log(JSON.stringify(publicPlan(plan), null, 2));
-  else printPlan(plan);
-  if (has('--dry-run')) return;
-  await applyProjectCreation(plan);
-  console.log(`已创建项目 ${name}：${plan.output}`);
-  if (!has('--skip-install')) {
-    console.log('正在使用项目声明的 pnpm/Corepack 安装依赖……');
-    const installation = await runShellCommand('corepack pnpm install', { cwd: plan.output });
-    if (installation.status !== 'passed') {
-      throw new Error('项目已创建，但依赖安装失败。请检查 Node.js 20、Corepack 和 registry 后重试 pnpm install');
+async function audit() {
+  const report = await runAudit(cwd);
+  if (has('--json')) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    console.log(`fe-harness 审计：${report.overallScore} 分 / 等级 ${report.overallGrade}`);
+    for (const dim of report.dimensions) {
+      console.log(`  ${dim.label}：${dim.score ?? 'MANUAL'} 分 (${dim.grade})${dim.tentative ? ' (暂定)' : ''}`);
     }
-    console.log('依赖安装完成。');
+    if (report.improvements.length) {
+      console.log('\n改进清单：');
+      for (const item of report.improvements) {
+        console.log(`  [${item.priority}] ${item.dimension}/${item.check}：${item.status}`);
+      }
+    }
   }
-  const inputRoot = resolve(plan.output, '.fe-harness/inputs');
-  console.log('\n项目容器已准备好。现在请把原始输入文件放入以下目录：');
-  console.log(`PRD  → ${resolve(inputRoot, 'prd')}`);
-  console.log(`RP   → ${resolve(inputRoot, 'rp')}`);
-  console.log(`UI   → ${resolve(inputRoot, 'ui')}`);
-  console.log(`API  → ${resolve(inputRoot, 'api')}`);
-  console.log(`资产 → ${resolve(inputRoot, 'assets')}`);
-  console.log('\n输入可以暂时为空；不要在项目创建前阻塞等待这些文件。');
-  console.log(`文件放好后：cd ${plan.output}`);
-  console.log('然后执行：fe-harness inputs inspect --json');
-  console.log('继续分析：fe-harness inputs analyze --json');
-  console.log('确认输入后创建首个任务：fe-harness task create --title "根据首批输入实现项目" --json');
-  console.log('最后执行：fe-harness doctor');
+  const reportDir = resolve(cwd, 'tmp/fe-harness');
+  await mkdir(reportDir, { recursive: true });
+  await writeFile(resolve(reportDir, 'audit-report.md'), formatAuditMarkdown(report), 'utf8');
+  process.exitCode = report.overallScore >= 60 ? 0 : 1;
+}
+
+async function optimize() {
+  const groupFlag = option('--groups');
+  const groups = groupFlag ? validateGroupSelection(groupFlag.split(',').map((s) => s.trim())) : getGroupKeys();
+  const isDryRun = has('--dry-run');
+  const files = await initializationFiles();
+
+  if (isDryRun) {
+    const proposal = await runOptimize(cwd, { groups, files, templateRoot: packageRoot });
+    if (has('--json')) {
+      console.log(JSON.stringify(proposal, null, 2));
+    } else {
+      console.log(`fe-harness optimize：${proposal.totalIssues} 个差异`);
+      for (const [group, issues] of Object.entries(proposal.proposal)) {
+        if (!issues.length) continue;
+        console.log(`\n[${AUTHORIZATION_GROUPS[group].label}]`);
+        for (const issue of issues) console.log(`  ${issue.status.padEnd(16)} ${issue.code} — ${issue.message}`);
+      }
+      console.log(`\n摘要：create=${proposal.summary.create} managed-update=${proposal.summary.managedUpdate} manual-merge=${proposal.summary.manualMerge}`);
+    }
+    return;
+  }
+
+  const result = await applyOptimize(cwd, { groups, files, templateRoot: packageRoot });
+  if (has('--json')) {
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    console.log(`fe-harness optimize：已处理 ${result.applied.filter((a) => a.applied).length} 项`);
+    if (result.drift.length) {
+      console.log(`幂等验证发现漂移：${result.drift.join(', ')}`);
+    } else {
+      console.log('幂等验证通过');
+    }
+  }
+}
+
+async function validate() {
+  const result = await validateHarness(cwd);
+  if (has('--json')) {
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    console.log(`fe-harness validate：${result.summary.errors} 错误 / ${result.summary.warnings} 警告 — ${result.status}`);
+    for (const issue of result.issues) {
+      console.log(`  ${issue.severity === 'error' ? '✖' : '⚠'} ${issue.code} — ${issue.message}`);
+    }
+  }
+  process.exitCode = result.status === 'passed' ? 0 : 1;
+}
+
+async function hosts(command) {
+  if (!command || command === 'list') {
+    const found = detectHosts(cwd);
+    const all = getSupportedHosts();
+    const payload = all.map((h) => ({ host: h, label: HOST_ADAPTERS[h].label, entry: HOST_ADAPTERS[h].entryFile, detected: found.includes(h) }));
+    if (has('--json')) {
+      console.log(JSON.stringify(payload, null, 2));
+    } else {
+      console.log('已检测到的宿主：');
+      for (const item of payload) {
+        console.log(`  ${item.detected ? '✓' : '✗'} ${item.host} (${item.label}) → ${item.entry || '需执行时核验'}`);
+      }
+    }
+    return;
+  }
+  if (command === 'install') {
+    const target = option('--host');
+    const hostsToInstall = target ? [target] : getSupportedHosts();
+    const results = await installAllThinEntries(cwd, hostsToInstall);
+    if (has('--json')) {
+      console.log(JSON.stringify(results, null, 2));
+    } else {
+      for (const r of results) {
+        console.log(`  ${r.action === 'keep' ? '✓' : r.action === 'manual' ? '⚠' : '✓'} ${r.host} → ${r.target || r.message}`);
+      }
+    }
+    return;
+  }
+  throw new Error('hosts 仅支持 list 或 install');
 }
 
 async function skills(command = 'list') {
@@ -481,6 +628,11 @@ async function ui(subject = 'systems', command = 'list', name) {
 }
 
 async function inspect() {
+  if (has('--map')) {
+    const result = await generateCodebaseMaps(cwd);
+    console.log(has('--json') ? JSON.stringify(result, null, 2) : `代码图谱已生成到 ${result.outputDir}：${result.maps.join(', ')}`);
+    return;
+  }
   const { config, path } = await loadProjectConfig(cwd);
   const inputInspection = await inspectInputs(cwd);
   const tokenInspection = await inspectDesignTokens(cwd, config);
@@ -528,9 +680,13 @@ async function plan(kind, name) {
     printHelp('plan');
     return;
   }
-  const value = kind === 'init' ? { action: 'init', ...(await initializationPlan()) } : publicPlan(await creationPlan(name));
-  console.log(JSON.stringify(value, null, 2));
-  if (value.status === 'conflict') process.exitCode = 1;
+  if (kind === 'init') {
+    const value = { action: 'init', ...(await initializationPlan()) };
+    console.log(JSON.stringify(value, null, 2));
+    if (value.status === 'conflict') process.exitCode = 1;
+    return;
+  }
+  throw new Error('plan 仅支持 init。新项目请使用 fe-harness scaffold');
 }
 
 function printDoctor(report) {
@@ -755,6 +911,86 @@ async function task(command, taskId) {
   console.log(has('--json') ? JSON.stringify(history, null, 2) : `任务 ${taskId} 快照数：${history.snapshots.length}`);
 }
 
+async function scaffold(name) {
+  if (wantsHelp(name) || !name) return printHelp('scaffold');
+
+  const profileFlag = option('--profile');
+
+  // 无 --profile 时进入交互式多轮问答
+  if (!profileFlag) {
+    const interactiveConfig = await interactiveScaffold(name);
+    if (!interactiveConfig) return;
+
+    const issues = validateScaffoldConfig(interactiveConfig);
+    if (issues.length) throw new Error(issues.join('；'));
+
+    interactiveConfig.templateRoot = packageRoot;
+    const result = await runScaffold(cwd, interactiveConfig);
+    console.log(`\n✅ 项目创建完成：${result.outputDir}`);
+    console.log('\n下一步：');
+    console.log(`  cd ${name}`);
+    console.log('  把 PRD/RP/UI/API/assets 放入 .fe-harness/inputs/');
+    console.log('  fe-harness inputs inspect --json');
+    console.log('  fe-harness task create --title "首期需求"');
+    console.log('  fe-harness doctor');
+    return;
+  }
+
+  // 有 --profile 时走参数模式
+  const profile = profileFlag;
+  const stack = option('--stack') || getAvailableStacks(profile)[0];
+  const uiSystem = option('--ui') || null;
+  const hostsFlag = option('--hosts');
+  const hosts = hostsFlag ? hostsFlag.split(',').map((s) => s.trim()) : ['codex'];
+  const skipInstall = has('--skip-install');
+  const skipFrameworkCli = has('--skip-framework-cli');
+  const dryRun = has('--dry-run');
+  const withRoutes = has('--with-routes');
+  const prdPath = option('--prd');
+
+  const options = {};
+  for (const opt of getStackOptions(stack)) {
+    if (opt.flag && has(opt.flag.replace(/^--/, ''))) options[opt.key] = true;
+    else if (has(`--no-${opt.key}`)) options[opt.key] = false;
+    else options[opt.key] = opt.default;
+  }
+
+  const config = { name, profile, stack, uiSystem, hosts, options, skipInstall, skipFrameworkCli, dryRun, withRoutes, prdPath, templateRoot: packageRoot };
+  const issues = validateScaffoldConfig(config);
+  if (issues.length) throw new Error(issues.join('；'));
+
+  if (dryRun) {
+    const result = await runScaffold(cwd, config);
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (has('--json')) {
+    const result = await runScaffold(cwd, config);
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    console.log(`\nfe-harness scaffold: ${name}`);
+    console.log(`  Profile:   ${profile}`);
+    console.log(`  Stack:     ${stack}`);
+    if (uiSystem) console.log(`  UI System: ${uiSystem}`);
+    console.log(`  Hosts:     ${hosts.join(', ')}`);
+    console.log('');
+
+    const result = await runScaffold(cwd, config);
+    for (const step of result.steps) {
+      const icon = step.status === 'passed' ? '✓' : step.status === 'manual' ? '⚠' : '✖';
+      console.log(`  ${icon} ${step.step}. ${step.description}`);
+    }
+    console.log(`\n✅ 项目创建完成：${result.outputDir}`);
+    console.log('\n下一步：');
+    console.log(`  cd ${name}`);
+    console.log('  把 PRD/RP/UI/API/assets 放入 .fe-harness/inputs/');
+    console.log('  fe-harness inputs inspect --json');
+    console.log('  fe-harness task create --title "首期需求"');
+    console.log('  fe-harness doctor');
+  }
+}
+
 async function main() {
   const [, , command, argument, secondArgument, thirdArgument] = process.argv;
   if (command === '-v' || command === '--version') {
@@ -763,13 +999,27 @@ async function main() {
   if (command === 'help') return printHelp(argument || 'main');
   if (!command || wantsHelp(command)) return printHelp('main');
   if (command === 'init') return init();
-  if (command === 'create') {
-    if (wantsHelp(argument) || !argument) return printHelp('create');
-    return create(argument);
+  if (command === 'scaffold') {
+    return scaffold(argument);
   }
   if (command === 'inspect') {
     if (wantsHelp(argument)) return printHelp('inspect');
     return inspect();
+  }
+  if (command === 'audit') {
+    if (wantsHelp(argument)) return printHelp('audit');
+    return audit();
+  }
+  if (command === 'optimize') {
+    if (wantsHelp(argument)) return printHelp('optimize');
+    return optimize();
+  }
+  if (command === 'validate') {
+    if (wantsHelp(argument)) return printHelp('validate');
+    return validate();
+  }
+  if (command === 'hosts') {
+    return hosts(argument || 'list');
   }
   if (command === 'plan') return plan(argument, secondArgument);
   if (command === 'doctor') {

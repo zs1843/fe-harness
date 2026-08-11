@@ -187,12 +187,134 @@ async function checkUniAppPageRegistry(cwd, relativePath) {
   }
 }
 
+async function checkVue3ViteConfig(cwd, config) {
+  const results = [];
+  const configCandidates = ['vite.config.ts', 'vite.config.mjs', 'vite.config.js'];
+  let foundConfig = null;
+  for (const file of configCandidates) {
+    if (await exists(resolve(cwd, file))) {
+      foundConfig = file;
+      break;
+    }
+  }
+  if (!foundConfig) {
+    results.push(
+      result(
+        'VITE_CONFIG',
+        'vue3-vite-config',
+        'failed',
+        '缺少 vite.config 配置文件',
+        '创建 vite.config.ts 或 vite.config.mjs',
+      ),
+    );
+  } else {
+    results.push(
+      result('VITE_CONFIG', 'vue3-vite-config', 'passed', `检测到 ${foundConfig}`),
+    );
+  }
+  return results;
+}
+
+async function checkVue3ViteDependencies(cwd, packageJson) {
+  const requiredDependencies = ['vue', 'vite'];
+  const missingDependencies = requiredDependencies.filter((name) => !hasDependency(packageJson, name));
+  return result(
+    'VUE3_VITE_DEPENDENCIES',
+    'vue3-vite-dependencies',
+    missingDependencies.length ? 'failed' : 'passed',
+    missingDependencies.length ? `缺少依赖：${missingDependencies.join(', ')}` : 'Vue 和 Vite 依赖已配置',
+    missingDependencies.length ? '在项目依赖中安装缺失项' : undefined,
+  );
+}
+
+async function checkTaroDependencies(cwd, packageJson) {
+  const requiredDependencies = ['@tarojs/taro'];
+  const missingDependencies = requiredDependencies.filter((name) => !hasDependency(packageJson, name));
+  return result(
+    'TARO_DEPENDENCIES',
+    'taro-dependencies',
+    missingDependencies.length ? 'failed' : 'passed',
+    missingDependencies.length ? `缺少依赖：${missingDependencies.join(', ')}` : 'Taro 依赖已配置',
+    missingDependencies.length ? '在项目依赖中安装缺失项' : undefined,
+  );
+}
+
+async function checkTaroPageRegistry(cwd, config) {
+  const registryPath = config.stack?.page_registry || 'src/app.config.ts';
+  const absolutePath = resolve(cwd, registryPath);
+  if (!(await exists(absolutePath))) {
+    return result(
+      'TARO_PAGE_REGISTRY',
+      'taro-page-registry',
+      'failed',
+      `缺少 Taro 页面注册文件 ${registryPath}`,
+      '创建 src/app.config.ts 并注册页面',
+    );
+  }
+  return result(
+    'TARO_PAGE_REGISTRY',
+    'taro-page-registry',
+    'passed',
+    `${registryPath} 已配置`,
+  );
+}
+
+async function checkReactViteDependencies(cwd, packageJson) {
+  const requiredDependencies = ['react', 'vite'];
+  const missingDependencies = requiredDependencies.filter((name) => !hasDependency(packageJson, name));
+  return result(
+    'REACT_VITE_DEPENDENCIES',
+    'react-vite-dependencies',
+    missingDependencies.length ? 'failed' : 'passed',
+    missingDependencies.length ? `缺少依赖：${missingDependencies.join(', ')}` : 'React 和 Vite 依赖已配置',
+    missingDependencies.length ? '在项目依赖中安装缺失项' : undefined,
+  );
+}
+
+async function checkSensitivePaths(cwd) {
+  const sensitivePatterns = [
+    /\.env$/i,
+    /\.env\.local$/i,
+    /\.env\.production$/i,
+    /\.env\.development$/i,
+    /\.env\.staging$/i,
+    /id_rsa/i,
+    /id_ed25519/i,
+    /\.pem$/i,
+    /\.key$/i,
+    /credentials/i,
+    /\.pfx$/i,
+  ];
+  const found = [];
+  try {
+    for (const entry of await readdir(cwd, { withFileTypes: true })) {
+      if (entry.name === '.env.example') continue;
+      if (entry.isFile() && sensitivePatterns.some((pattern) => pattern.test(entry.name))) {
+        found.push(entry.name);
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return result(
+    'SENSITIVE_PATHS',
+    'sensitive-paths',
+    found.length ? 'warning' : 'passed',
+    found.length
+      ? `发现敏感文件（仅枚举未读取）：${found.join(', ')}`
+      : '未发现敏感文件',
+    found.length ? '确保敏感文件已加入 .gitignore，不提交到版本库' : undefined,
+  );
+}
+
 async function checkAgentWorkflow(cwd, config) {
-  if (config.project?.product_type !== 'consumer_h5') {
-    return result('AGENT_WORKFLOW', 'agent-workflow', 'not_applicable', '非 consumer-h5 项目');
+  const supportedProfiles = ['consumer_h5', 'admin_web', 'mini_program'];
+  if (!supportedProfiles.includes(config.project?.product_type)) {
+    return result('AGENT_WORKFLOW', 'agent-workflow', 'not_applicable', `非受支持的产品形态：${config.project?.product_type || '未配置'}`);
   }
   const agentGuidePath = resolve(cwd, config.facts?.agent_entry || 'AGENTS.md');
-  const skillPath = resolve(cwd, '.agents/skills/consumer-h5-harness/SKILL.md');
+  const skillName = `${config.project?.product_type?.replace(/_/g, '-')}-harness`;
+  const skillPath = resolve(cwd, `.agents/skills/${skillName}/SKILL.md`);
   if (!(await exists(agentGuidePath)) || !(await exists(skillPath))) {
     return result(
       'AGENT_WORKFLOW',
@@ -227,8 +349,9 @@ async function checkAgentWorkflow(cwd, config) {
 }
 
 async function checkAgentAdapters(cwd, config) {
-  if (config.project?.product_type !== 'consumer_h5') {
-    return result('AGENT_ADAPTERS', 'agent-adapters', 'not_applicable', '非 consumer-h5 项目');
+  const supportedProfiles = ['consumer_h5', 'admin_web', 'mini_program'];
+  if (!supportedProfiles.includes(config.project?.product_type)) {
+    return result('AGENT_ADAPTERS', 'agent-adapters', 'not_applicable', `非受支持的产品形态：${config.project?.product_type || '未配置'}`);
   }
   const canonicalPath = resolve(cwd, config.facts?.agent_entry || 'AGENTS.md');
   if (!(await exists(canonicalPath))) {
@@ -236,7 +359,8 @@ async function checkAgentAdapters(cwd, config) {
   }
   const claudePath = resolve(cwd, 'CLAUDE.md');
   const cursorPath = resolve(cwd, '.cursor/rules/fe-harness.mdc');
-  const claudeSkillPath = resolve(cwd, '.claude/skills/consumer-h5-harness/SKILL.md');
+  const skillName = `${config.project?.product_type?.replace(/_/g, '-')}-harness`;
+  const claudeSkillPath = resolve(cwd, `.claude/skills/${skillName}/SKILL.md`);
   const missing = [];
   if (!(await exists(claudePath))) missing.push('CLAUDE.md');
   if (!(await exists(cursorPath))) missing.push('.cursor/rules/fe-harness.mdc');
@@ -542,6 +666,21 @@ export async function runDoctor(cwd, config) {
     );
   }
 
+  if (config.stack?.adapter === 'vue3-vite') {
+    results.push(...(await checkVue3ViteConfig(cwd, config)));
+    results.push(await checkVue3ViteDependencies(cwd, packageJson));
+  }
+
+  if (config.stack?.adapter === 'taro') {
+    results.push(await checkTaroDependencies(cwd, packageJson));
+    results.push(await checkTaroPageRegistry(cwd, config));
+  }
+
+  if (config.stack?.adapter === 'react-vite') {
+    results.push(...(await checkVue3ViteConfig(cwd, config)));
+    results.push(await checkReactViteDependencies(cwd, packageJson));
+  }
+
   const gitignorePath = resolve(cwd, '.gitignore');
   if (await exists(gitignorePath)) {
     const gitignore = await readFile(gitignorePath, 'utf8');
@@ -571,6 +710,7 @@ export async function runDoctor(cwd, config) {
     );
   }
 
+  results.push(await checkSensitivePaths(cwd));
   results.push(await checkOpenApi(cwd, config));
   results.push(await checkApiGeneration(cwd, config));
   results.push(await checkAgentWorkflow(cwd, config));

@@ -1,0 +1,53 @@
+schema: ui-system-adapter/v1
+id: ant-design-vue
+version: "0.1.0-experimental"
+status: experimental
+stack_compatibility:
+  adapter: vue3-vite
+  framework: vue
+policy_support: [required, preferred]
+documentation:
+  authority_order: [installed_types, versioned_source, official_docs, llms_txt, mcp]
+  mcp_capabilities: [component_list, component_docs, component_dom, component_changelog]
+components:
+  - { name: Button, semantic: action }
+  - { name: Input, semantic: text-input }
+  - { name: Modal, semantic: confirmation }
+  - { name: Drawer, semantic: overlay }
+  - { name: Table, semantic: data-table }
+  - { name: Form, semantic: form }
+  - { name: Pagination, semantic: pagination }
+  - { name: Select, semantic: selection }
+  - { name: DatePicker, semantic: date-range-picker }
+  - { name: Spin, semantic: loading }
+  - { name: Empty, semantic: empty-state }
+semantic_mapping:
+  primary-action: { component: Button, props: { type: primary } }
+  secondary-action: { component: Button, props: { type: default } }
+  confirmation-dialog: { component: Modal }
+  side-panel: { component: Drawer }
+  data-grid: { component: Table }
+  form-container: { component: Form }
+  pager: { component: Pagination }
+  loading-state: { component: Spin }
+  empty-state: { component: Empty }
+  date-range: { component: DatePicker }
+token_mapping:
+  color.brand.primary: --ant-primary-color
+  color.text.primary: --ant-text-color
+  color.surface.page: --ant-background-color
+  radius.control: --ant-border-radius-base
+  size.control.large: --ant-component-size-lg
+constraints:
+  - id: prefer-system-component
+    severity: warning
+    message: UI System 已有语义组件时优先复用，不重复实现基础控件。
+  - id: no-internal-dom-overrides
+    severity: failure
+    message: 不直接覆盖组件内部 DOM class；优先使用 Props、Slots 和 Token。
+  - id: versioned-evidence
+    severity: failure
+    message: llms.txt 或 MCP 证据必须记录与安装版本的对应关系。
+  - id: runtime-dependency-lifecycle
+    severity: failure
+    message: 实际使用的 UI runtime 必须作为锁定的生产依赖保留；仅试用且源码未引用时才移除，更换框架必须先迁移和验证。

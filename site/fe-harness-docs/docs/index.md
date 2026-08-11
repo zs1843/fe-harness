@@ -37,7 +37,7 @@ features:
 ## 默认工作流
 
 ```bash
-fe-harness create my-h5
+fe-harness scaffold my-h5 --profile consumer-h5 --stack uni-app
 cd my-h5
 fe-harness inputs inspect --json
 fe-harness inputs analyze --json

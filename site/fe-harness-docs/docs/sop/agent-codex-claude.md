@@ -14,7 +14,7 @@ fe-harness 的 Agent 接入目标是：不同 Agent 使用同一套项目约束�
 
 ## 新项目默认状态
 
-`fe-harness create` 默认安装聚合 Skill：
+`fe-harness scaffold` 默认安装聚合 Skill：
 
 ```text
 .agents/skills/consumer-h5-harness/SKILL.md

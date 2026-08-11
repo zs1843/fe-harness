@@ -20,12 +20,12 @@
         "name": { "type": "string", "minLength": 1 },
         "product_type": {
           "type": "string",
-          "enum": ["consumer_h5", "developer_tooling"]
+          "enum": ["consumer_h5", "developer_tooling", "admin_web", "mini_program"]
         },
         "platforms": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "enum": ["web_mobile", "node"] }
+          "items": { "type": "string", "enum": ["web_mobile", "node", "node_runtime"] }
         }
       }
     },
@@ -33,7 +33,7 @@
       "type": "object",
       "required": ["adapter"],
       "properties": {
-        "adapter": { "type": "string", "enum": ["uni-app", "node-esm"] },
+        "adapter": { "type": "string", "enum": ["uni-app", "node-esm", "vue3-vite", "taro", "react-vite"] },
         "package_manager": { "type": "string", "enum": ["pnpm", "npm", "yarn"] }
       }
     },

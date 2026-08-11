@@ -3,7 +3,7 @@
 运行：
 
 ```bash
-fe-harness create my-h5
+fe-harness scaffold my-h5 --profile consumer-h5 --stack uni-app
 ```
 
 会得到一个业务中立的 Consumer H5 项目。它提供可运行的技术容器、Harness 事实目录、Agent 入口和验证骨架，但不会生成真实业务页面。

@@ -12,7 +12,7 @@ and wrappers unchanged; put business mapping in a separate service or repository
 
 所有用户可见输出使用中文。JSON/YAML 可以保留稳定英文编码，但必须提供中文显示名称或中文说明。
 
-根目录 `AGENTS.md` 是唯一项目约束本体。本 Skill 只定义可调用工作流，不得复制维护或覆盖另一套项目约束；`CLAUDE.md` 和 `.cursor/rules/fe-harness.mdc` 也只能导入或指向 `AGENTS.md`。
+根目录 `AGENTS.md` 是唯一项目约束本体。本 Skill 只定义可调用工作流，不得复制维护或覆盖另一套项目约束；`CLAUDE.md` 和 `.cursor/rules/fe-harness.mdc` 也只能导入或指向 `AGENTS.md`。多宿主薄入口（codex/opencode/claude/cursor/trae）通过受管块安装，不覆盖已有内容。
 
 ## 必读顺序
 
@@ -79,8 +79,8 @@ PRD、RP、UI、API、用户临时要求和已有实现冲突时，必须记录�
 
 ## 自动工作流
 
-1. 运行 `fe-harness inspect --json`。
-2. 项目有效性不确定时运行 `fe-harness doctor`。
+1. 运行 `fe-harness inspect --json`；需要代码图谱时运行 `fe-harness inspect --map` 生成 `.fe-harness/codebase/` 下 5 份地图。
+2. 项目有效性不确定时运行 `fe-harness doctor`（包含敏感路径检测，扫描 `.env`/私钥只枚举不读取）。
 3. 读取输入清单：`fe-harness inputs inspect --json`。
    若这是刚创建的项目且输入为空，向用户展示五类输入目录并暂停业务实现；收到文件后重新检查，不把对话截图当作唯一、未登记的长期证据。
 4. 按业务、交互和 Token 三套优先级分析。
@@ -106,6 +106,9 @@ PRD、RP、UI、API、用户临时要求和已有实现冲突时，必须记录�
 13. 对照 PRD/RP 重新遍历入口和全部跳转；有阻塞则集中追问，有遗漏则继续实现。
     将视觉微调按 token/component/layout/responsive/page_exception 写入 `.fe-harness/ui/adjustments.yaml`。
 14. 闭包后创建不可变任务快照：`fe-harness task snapshot <任务编号> --json`。
-15. 最终只报告实际实现、实际验证、明确延期和剩余风险。
+15. 运行 `fe-harness audit` 做八维成熟度审计，输出 A-F 等级和 P0-P2 改进清单。
+16. 运行 `fe-harness validate` 验证 Harness 完整性：受管块匹配、规则完整性、宿主适配器、Markdown 链接、禁止路径。
+17. 运行 `fe-harness optimize --dry-run` 检查是否有漂移或缺失，按五组（文档/规则/适配器/工程配置/工具）列出差异。
+18. 最终只报告实际实现、实际验证、审计等级、明确延期和剩余风险。
 
-视觉验证未配置基线时必须报告“未配置”，不得显示“通过”。构建通过、页面可打开、E2E 通过或截图通过都不能替代产品验收。
+视觉验证未配置基线时必须报告”未配置”，不得显示”通过”。构建通过、页面可打开、E2E 通过或截图通过都不能替代产品验收。

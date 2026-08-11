@@ -11,8 +11,8 @@ A business-agnostic frontend engineering and quality harness.
 ## Default Workflow
 
 ```bash
-fe-harness create my-h5 --dry-run
-fe-harness create my-h5
+fe-harness scaffold my-h5 --profile consumer-h5 --stack uni-app --dry-run
+fe-harness scaffold my-h5 --profile consumer-h5 --stack uni-app
 fe-harness init --dry-run
 fe-harness init
 fe-harness inspect --json

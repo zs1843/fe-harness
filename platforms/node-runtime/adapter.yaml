@@ -1,0 +1,12 @@
+id: node-runtime
+version: "0.1.0"
+defaults:
+  runtime: node
+  target: es2022
+artifacts:
+  - logs
+  - coverage
+checks:
+  - node_version
+  - env_config
+  - process_error_handling

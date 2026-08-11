@@ -31,11 +31,11 @@ fe-harness skills install --global --provider claude --name consumer-h5-harness
 | Skill | 作用 | 典型触发 |
 | --- | --- | --- |
 | `consumer-h5-harness` | Consumer H5 总工作流 | 创建/接入项目、实现页面、验证功能、创建快照 |
-| `fe-harness-create` | 创建项目专项流程 | 从零创建项目、准备输入目录、建立首个任务 |
+| `fe-harness-scaffold` | 级联多轮问答创建项目 | "做一个后台""新建项目""创建 H5" |
 | `fe-harness-init` | 接入已有项目专项流程 | init dry-run、冲突处理、存量 Token discovery |
 | `fe-harness-inspect` | 状态读取 | 查看 project facts、输入状态、Token 状态、Agent readiness |
-| `fe-harness-plan` | 计划预览 | create/init 前查看会写哪些文件 |
-| `fe-harness-doctor` | 只读诊断 | 检查 Node、pnpm、脚本、页面、输入、Token、视觉基线 |
+| `fe-harness-plan` | 计划预览 | init 前查看会写哪些文件 |
+| `fe-harness-doctor` | 只读诊断 | 检查 Node、pnpm、脚本、页面、输入、Token、视觉基线、敏感路径 |
 | `fe-harness-inputs` | 输入管理 | 登记和分析 PRD/RP/UI/API/assets |
 | `fe-harness-task` | 任务管理 | 创建 T001、查看历史、创建 snapshot |
 | `fe-harness-verify` | 分层验证 | 根据改动选择 quick/feature/runtime/visual/audit |

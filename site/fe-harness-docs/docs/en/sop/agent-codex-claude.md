@@ -14,7 +14,7 @@ fe-harness's Agent connection goal: different Agents use the same set of project
 
 ## New Project Default State
 
-`fe-harness create` by default installs aggregated Skill:
+`fe-harness scaffold` by default installs aggregated Skill:
 
 ```text
 .agents/skills/consumer-h5-harness/SKILL.md

@@ -8,8 +8,15 @@
 fe-harness init --dry-run
 fe-harness plan init --json
 fe-harness init
+fe-harness hosts install
+fe-harness inspect --map
 fe-harness doctor
+fe-harness audit
+fe-harness validate
+fe-harness optimize --dry-run
 ```
+
+`init` 完成后自动运行幂等验证，二次执行确认零漂移。`hosts install` 用受管块+稳定 ID 安装多宿主薄入口（codex/opencode/claude/cursor/trae），不覆盖已有内容。
 
 ## 预检状态
 

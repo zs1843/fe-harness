@@ -31,11 +31,11 @@ fe-harness skills install --global --provider claude --name consumer-h5-harness
 | Skill | Purpose | Typical Triggers |
 | --- | --- | --- |
 | `consumer-h5-harness` | Consumer H5 master workflow | Creating/connecting projects, implementing pages, verifying features, creating snapshots |
-| `fe-harness-create` | Project creation workflow | Creating projects from scratch, preparing input directories, establishing first task |
+| `fe-harness-scaffold` | Cascading multi-round Q&A project creation | "Create admin backend", "New project", "Create H5" |
 | `fe-harness-init` | Existing project connection workflow | init dry-run, conflict resolution, existing token discovery |
 | `fe-harness-inspect` | Status reading | Viewing project facts, input status, token status, Agent readiness |
-| `fe-harness-plan` | Plan preview | Previewing which files will be written before create/init |
-| `fe-harness-doctor` | Read-only diagnostics | Checking Node, pnpm, scripts, pages, inputs, tokens, visual baselines |
+| `fe-harness-plan` | Plan preview | Previewing which files will be written before init |
+| `fe-harness-doctor` | Read-only diagnostics | Checking Node, pnpm, scripts, pages, inputs, tokens, visual baselines, sensitive paths |
 | `fe-harness-inputs` | Input management | Registering and analyzing PRD/RP/UI/API/assets |
 | `fe-harness-task` | Task management | Creating T001, viewing history, creating snapshots |
 | `fe-harness-verify` | Layered verification | Selecting quick/feature/runtime/visual/audit based on changes |

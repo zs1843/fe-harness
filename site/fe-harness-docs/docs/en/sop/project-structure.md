@@ -3,7 +3,7 @@
 Run:
 
 ```bash
-fe-harness create my-h5
+fe-harness scaffold my-h5 --profile consumer-h5 --stack uni-app
 ```
 
 You get a business-neutral Consumer H5 project. It provides runnable technical container, Harness facts directory, Agent entry points, and verification skeleton, but won't generate real business pages.

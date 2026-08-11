@@ -22,16 +22,16 @@ export function validateProjectConfig(config) {
   if (typeof config?.project?.name !== 'string' || !config.project.name.trim()) {
     issues.push('缺少 project.name');
   }
-  if (!['consumer_h5', 'developer_tooling'].includes(config?.project?.product_type)) {
-    issues.push('project.product_type 必须是 consumer_h5 或 developer_tooling');
+  if (!['consumer_h5', 'developer_tooling', 'admin_web', 'mini_program'].includes(config?.project?.product_type)) {
+    issues.push('project.product_type 必须是 consumer_h5、developer_tooling、admin_web 或 mini_program');
   }
   if (!Array.isArray(config?.project?.platforms) || !config.project.platforms.length) {
     issues.push('project.platforms 至少配置一个平台');
-  } else if (config.project.platforms.some((platform) => !['web_mobile', 'node'].includes(platform))) {
+  } else if (config.project.platforms.some((platform) => !['web_mobile', 'node', 'node_runtime'].includes(platform))) {
     issues.push('project.platforms 包含不支持的平台');
   }
-  if (!['uni-app', 'node-esm'].includes(config?.stack?.adapter)) {
-    issues.push('stack.adapter 必须是 uni-app 或 node-esm');
+  if (!['uni-app', 'node-esm', 'vue3-vite', 'taro', 'react-vite'].includes(config?.stack?.adapter)) {
+    issues.push('stack.adapter 必须是 uni-app、node-esm、vue3-vite、taro 或 react-vite');
   }
   if (
     config?.stack?.package_manager !== undefined &&

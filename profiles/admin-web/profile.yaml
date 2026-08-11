@@ -1,0 +1,11 @@
+id: admin-web
+version: "0.1.0"
+checks:
+  - desktop_viewport_layout
+  - data_table_states
+  - form_validation_and_errors
+  - permission_and_route_guard
+  - loading_empty_error_states
+  - batch_operations
+  - modal_and_drawer_management
+  - responsive_sidebar

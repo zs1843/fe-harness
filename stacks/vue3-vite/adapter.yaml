@@ -1,0 +1,17 @@
+id: vue3-vite
+version: "0.1.0"
+detection:
+  files:
+    - vite.config.ts
+    - vite.config.mjs
+  dependencies:
+    - "vue"
+    - "vite"
+defaults:
+  source_dir: src
+  entry: src/main.ts
+  router: src/router/index.ts
+checks:
+  - vite_build_command
+  - vue_router_integrity
+  - vitest_playwright_isolation

@@ -1,0 +1,17 @@
+id: react-vite
+version: "0.1.0"
+detection:
+  files:
+    - vite.config.ts
+    - vite.config.mjs
+  dependencies:
+    - "react"
+    - "vite"
+defaults:
+  source_dir: src
+  entry: src/main.tsx
+  router: src/router/index.ts
+checks:
+  - vite_build_command
+  - react_router_integrity
+  - vitest_playwright_isolation

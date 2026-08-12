@@ -1,60 +1,104 @@
 # fe-harness
 
-`fe-harness` is a business-agnostic frontend engineering and quality harness. It provides
-configuration-driven verification, project diagnostics, reports, initialization templates, and CI
-entry points.
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-The first profile targets:
+`fe-harness` is a business-agnostic frontend engineering and quality harness. It gives developers,
+CI pipelines, and coding agents one configuration and CLI for project scaffolding, evidence intake,
+task tracking, diagnostics, and verification.
 
-- Product profile: `consumer-h5`
-- Platform adapter: `web-mobile`
-- Stack adapter: `uni-app`
+> Current status: active development. The workspace packages are prepared for packing, but no npm
+> package has been published yet. Use the repository CLI while evaluating the project.
 
-## Commands
+## What it provides
+
+- Cascading project scaffolding: Product Profile → Stack → UI System → framework options.
+- Safe, dry-run-first adoption for existing projects without overwriting project-owned files.
+- Registered PRD, RP, UI, API, and asset evidence with change and conflict detection.
+- Stable task IDs, immutable snapshots, and requirement-closure checks.
+- Quick, feature, runtime, interaction, visual, and audit verification modes.
+- Read-only diagnostics, eight-dimension maturity audits, and idempotent optimization proposals.
+- Optional Design Token, UI System Adapter, and task-scoped OpenAPI generation workflows.
+- Thin agent entrypoints for Codex, OpenCode, Claude Code, Cursor, and Trae.
+
+## Quick start from source
+
+Requirements: Node.js 20 or later and pnpm 10.x.
 
 ```bash
-fe-harness create my-h5 --dry-run
-fe-harness create my-h5
+pnpm install
+node packages/cli/bin/fe-harness.mjs --help
+
+# Preview a new project without writing files
+node packages/cli/bin/fe-harness.mjs scaffold my-app \
+  --profile consumer-h5 \
+  --stack uni-app \
+  --dry-run
+
+# Preview adoption inside an existing project
+node /path/to/fe-harness/packages/cli/bin/fe-harness.mjs init --dry-run
+```
+
+After the CLI is published or linked locally, the same commands can be invoked as `fe-harness ...`.
+
+## Default workflow
+
+```bash
+# 1. Create a project, or connect an existing one
+fe-harness scaffold my-app --profile consumer-h5 --stack uni-app
 fe-harness init --dry-run
 fe-harness init
-fe-harness inspect --json
-fe-harness plan init --json
-fe-harness plan create my-h5 --json
-fe-harness doctor
-fe-harness verify quick
-fe-harness verify feature
-fe-harness verify visual
-fe-harness verify audit
+
+# 2. Inspect and analyze task evidence
 fe-harness inputs inspect --json
-fe-harness design tokens inspect --json
-fe-harness ui systems list --json
-fe-harness ui systems install tdesign-uniapp --dry-run --json
-fe-harness task create --title "首次需求"
-fe-harness skills list --json
-fe-harness skills install --project
-fe-harness skills install --global
-fe-harness version
-fe-harness -v
-fe-harness --version
+fe-harness inputs analyze --json
+
+# 3. Create a traceable task
+fe-harness task create --title "First feature"
+
+# 4. Implement, then run the appropriate gate
+fe-harness verify feature
 ```
 
-`create` generates a real consumer-H5 project with uni-app, Vue 3, Vite, Playwright, project facts,
-automatic Agent instructions, and the default aggregate Consumer H5 workflow Skill. It installs
-project dependencies by default; use `--skip-install` for offline scaffolding. `init` connects an
-existing project without overwriting project-owned files. AI agents should use `inspect` and `plan`
-before mutation, then invoke the appropriate verification mode automatically.
+`scaffold` delegates initial creation to the selected framework CLI and then layers Harness files,
+agent entrypoints, adapters, and project configuration on top. `init` adds only missing Harness files
+to an existing project. Both support a non-mutating preview before adoption.
 
-Command-specific Skills remain available through explicit installation when a task needs them.
+## Supported combinations
 
-`AGENTS.md` is the only project constraint body. Generated `CLAUDE.md` imports it, Cursor receives a
-thin always-applied rule pointing to it, and Codex/Cursor use `.agents/skills` while Claude Code uses
-`.claude/skills`. Install workflows for supported providers with:
+| Layer | Available options |
+| --- | --- |
+| Product Profile | `consumer-h5`, `admin-web`, `mini-program` |
+| Platform Adapter | `web-mobile`, `node-runtime` |
+| Stack Adapter | `uni-app`, `vue3-vite`, `react-vite`, `taro` |
+| UI System Adapter | `tdesign-uniapp`, `element-plus`, `ant-design-vue`, `arco-design-vue`, `tdesign-web-vue`, `ant-design` |
 
-```bash
-fe-harness skills install --project --provider all --name consumer-h5-harness
-fe-harness skills install --global --provider claude
-fe-harness skills install --global --provider cursor
+Compatibility is filtered by the selected Product Profile and Stack Adapter. UI System Adapters are
+optional descriptors; adopting a UI runtime still requires a version-locked project dependency.
+
+## CLI overview
+
+```text
+scaffold <name>                  Create a project through cascading choices
+init [--dry-run]                Connect an existing project safely
+inspect [--map]                 Inspect facts or generate codebase maps
+plan init                       Preview initialization as structured data
+doctor                          Run read-only diagnostics
+audit                           Produce an eight-dimension maturity report
+optimize [--dry-run]            Propose or apply grouped, idempotent improvements
+validate                        Validate managed blocks, rules, links, and host adapters
+hosts list|install              Manage multi-host thin entrypoints
+inputs inspect|diff|analyze     Inspect registered task evidence
+task create|inspect|history|snapshot
+api inspect|generate            Generate task-scoped code from local OpenAPI JSON
+design tokens inspect|diff|discover
+ui systems list|install
+skills list|install
+verify quick|feature|runtime|interaction|visual|audit
+version
 ```
+
+Run `fe-harness help <command>` for command-specific options. Add `--json` where supported for stable
+Agent and CI output.
 
 ## Architecture
 
@@ -63,26 +107,65 @@ Core
   + Product Profile
   + Platform Adapter
   + Stack Adapter
-  + Project-owned configuration
+  + optional UI System Adapter
+  + project-owned configuration (.fe-harness/project.yaml)
 ```
 
-Core does not contain product pages, domain states, API endpoints, brand values, or design tokens.
-It also does not import a concrete UI library. Optional UI System Adapters map semantic components and
-project-owned semantic tokens to a selected library; see `docs/UI_SYSTEMS.md`.
+Core owns reusable mechanisms such as configuration loading, diagnostics, command execution,
+reports, and safe writes. It does not contain business pages, domain states, API endpoints, brands,
+or project Design Token values. Product, platform, stack, and UI rules remain declarative adapters.
 
-## Documentation site
+## Agent integration and Skills
 
-A deployable VitePress documentation site lives under `site/fe-harness-docs/`. It explains the
-background, SOP, module design, Agent workflow, verification strategy, and static deployment path.
+`AGENTS.md` is the single project constraint body. Provider-specific files are thin adapters:
+
+- Codex and OpenCode → `AGENTS.md`
+- Claude Code → `CLAUDE.md`
+- Cursor → `.cursor/rules/fe-harness.mdc`
+- Trae → runtime-verified entrypoint
+
+The repository includes an aggregate `consumer-h5-harness` workflow plus command-specific Skills for
+scaffold, init, inspect, plan, doctor, verify, inputs, tasks, API generation, Design Tokens, Skill
+installation, and version checks. Generated projects receive the aggregate workflow by default;
+install specialized Skills only when needed.
+
+```bash
+fe-harness skills list --json
+fe-harness skills install --project --provider all --name consumer-h5-harness
+fe-harness skills install --global --provider claude
+```
+
+## Development and verification
+
+```bash
+pnpm test
+node packages/cli/bin/fe-harness.mjs version
+pnpm verify:quick
+pnpm verify:audit
+```
+
+The deployable VitePress documentation site is under `site/fe-harness-docs/`:
 
 ```bash
 cd site/fe-harness-docs
 pnpm install
+pnpm docs:dev
 pnpm docs:build
 ```
 
-## Status
+For implementation details and project direction, see [Project Map](docs/PROJECT_MAP.md),
+[Architecture](docs/ARCHITECTURE.md), [Current Status](docs/CURRENT_STATUS.md), and
+[Roadmap](docs/ROADMAP.md).
 
-This repository is an initial `0.1.0` implementation. Core and CLI packages can be packed for
-registry verification, but the package scope must be configured before publishing. Publishing,
-upgrades, API contract adapters, and additional project profiles remain explicit release decisions.
+## Current limitations
+
+- Registry publication, release automation, and upgrade conflict patches are not available yet.
+- Online Apifox synchronization is not implemented; API generation starts from registered local
+  OpenAPI JSON exports.
+- Visual and interaction verification require project-specific baselines or flows and may report
+  `not_configured`.
+- The experimental UI System workflow still needs validation in unrelated real-world projects.
+
+## License
+
+MIT

@@ -4,6 +4,12 @@ export default {
   lang: 'zh-CN',
   cleanUrls: true,
   lastUpdated: true,
+  markdown: {
+    theme: {
+      light: 'github-light',
+      dark: 'github-dark',
+    },
+  },
   locales: {
     root: {
       label: '简体中文',
